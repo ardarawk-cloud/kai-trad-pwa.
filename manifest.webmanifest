@@ -1,0 +1,19 @@
+{
+  "name": "KAI TRAD — AI Trading Robot",
+  "short_name": "KAI TRAD",
+  "description": "AI-assisted autonomous spot trading control center",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050a09",
+  "theme_color": "#07120f",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
