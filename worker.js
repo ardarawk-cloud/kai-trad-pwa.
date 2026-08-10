@@ -30,7 +30,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function defaults(env) {
   const starting = Number(env.STARTING_BALANCE || 10000);
   return {
-    version: "1.1.0",
+    version: "1.3.0",
     mode: env.TRADING_MODE === "live" ? "live" : "paper",
     createdAt: nowIso(),
     config: {
@@ -177,7 +177,7 @@ export class TradingState {
     // Locked policy requested for every automatic trade, including persisted state after upgrades.
     s.config.stopLossPct = 0.10;
     s.config.takeProfitPct = 0.30;
-    s.version = "1.1.0";
+    s.version = "1.3.0";
     return s;
   }
 
@@ -306,7 +306,8 @@ export class TradingState {
 
   async runCycle(manual = false) {
     let s = await this.state();
-    const baseUrl = this.env.MARKET_DATA_BASE_URL || "https://api.binance.com";
+    const baseUrl = this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision";
+    const tradeBaseUrl = this.env.TRADE_BASE_URL || "https://api.binance.com";
     const [mainCandles, fastCandles, marketPrice] = await Promise.all([
       fetchKlines(baseUrl, s.config.symbol, s.config.interval, 200),
       fetchKlines(baseUrl, s.config.symbol, s.config.fastInterval, 200),
@@ -322,7 +323,7 @@ export class TradingState {
     };
 
     if (s.mode === "live" && this.liveExecutionAllowed()) {
-      const account = await getSpotAccount({ baseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
+      const account = await getSpotAccount({ baseUrl: tradeBaseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
       const rules = await fetchSymbolRules(baseUrl, s.config.symbol);
       const quoteFree = getFreeBalance(account, rules.quoteAsset);
       if (!s.position) {
@@ -427,7 +428,7 @@ export class TradingState {
     if (s.mode === "live") {
       if (!this.liveExecutionAllowed()) throw new Error("Live execution lock is not satisfied");
       const order = await placeMarketBuy({
-        baseUrl: this.env.MARKET_DATA_BASE_URL || "https://api.binance.com",
+        baseUrl: this.env.TRADE_BASE_URL || "https://api.binance.com",
         apiKey: this.env.BINANCE_API_KEY,
         apiSecret: this.env.BINANCE_API_SECRET,
         symbol: s.config.symbol,
@@ -478,8 +479,8 @@ export class TradingState {
 
     if (s.mode === "live") {
       await sleep(200);
-      const rules = await fetchSymbolRules(this.env.MARKET_DATA_BASE_URL || "https://api.binance.com", s.config.symbol);
-      const account = await getSpotAccount({ baseUrl: this.env.MARKET_DATA_BASE_URL || "https://api.binance.com", apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
+      const rules = await fetchSymbolRules(this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision", s.config.symbol);
+      const account = await getSpotAccount({ baseUrl: this.env.TRADE_BASE_URL || "https://api.binance.com", apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
       s.account.cash = getFreeBalance(account, rules.quoteAsset);
     }
     return s;
@@ -495,14 +496,15 @@ export class TradingState {
 
     if (s.mode === "live") {
       if (!this.liveExecutionAllowed()) throw new Error("Live execution lock is not satisfied");
-      const baseUrl = this.env.MARKET_DATA_BASE_URL || "https://api.binance.com";
-      const rules = await fetchSymbolRules(baseUrl, s.config.symbol);
-      const account = await getSpotAccount({ baseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
+      const marketBaseUrl = this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision";
+      const tradeBaseUrl = this.env.TRADE_BASE_URL || "https://api.binance.com";
+      const rules = await fetchSymbolRules(marketBaseUrl, s.config.symbol);
+      const account = await getSpotAccount({ baseUrl: tradeBaseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
       const freeBase = getFreeBalance(account, rules.baseAsset);
       qty = floorToStep(Math.min(p.qty, freeBase), rules.stepSize);
       if (qty < rules.minQty || qty <= 0) throw new Error("Live sell quantity is below exchange minimum");
       const order = await placeMarketSell({
-        baseUrl,
+        baseUrl: tradeBaseUrl,
         apiKey: this.env.BINANCE_API_KEY,
         apiSecret: this.env.BINANCE_API_SECRET,
         symbol: s.config.symbol,
@@ -513,7 +515,7 @@ export class TradingState {
       proceeds = fill.quoteQty || qty * fillPrice;
       orderId = fill.orderId;
       await sleep(200);
-      const refreshed = await getSpotAccount({ baseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
+      const refreshed = await getSpotAccount({ baseUrl: tradeBaseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
       s.account.cash = getFreeBalance(refreshed, rules.quoteAsset);
     } else {
       fee = proceeds * 0.001;
@@ -557,7 +559,7 @@ export default {
       return json({
         ok: true,
         service: "KAI TRAD",
-        version: "1.1.0",
+        version: "1.3.0",
         mode: env.TRADING_MODE === "live" ? "live" : "paper",
         adminConfigured: Boolean(env.ADMIN_TOKEN),
         liveExecutionEnabled: env.ENABLE_LIVE_EXECUTION === "YES_I_ACCEPT_RISK",

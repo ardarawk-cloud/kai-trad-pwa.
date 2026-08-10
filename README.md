@@ -1,4 +1,4 @@
-# KAI TRAD PWA — PHONE FLAT BUILD v1.1
+# KAI TRAD PWA — PHONE FLAT BUILD v1.0
 
 Phone-first Cloudflare Worker + PWA trading control center.
 
@@ -11,12 +11,10 @@ Upload every file in this folder directly to the repository root. No folders nee
 
 `npm run build` automatically creates the `dist/` asset folder inside Cloudflare's build environment.
 
-## Locked automatic trade policy
-- Stop Loss: **10%** from entry.
-- Take Profit: **30%** from entry.
-- 10% trailing distance may protect profit earlier after price advances.
-
 ## Safety default
 - Paper mode by default.
 - Spot long/flat only.
 - Live execution remains locked unless all required secrets are configured and `ENABLE_LIVE_EXECUTION` is explicitly changed.
+
+## v1.3 Market Data Hotfix
+Public market-data traffic uses Binance's market-data-only endpoint first (`data-api.binance.vision`) with official REST endpoint fallbacks. Live/private trading remains isolated on `TRADE_BASE_URL` (`api.binance.com`).

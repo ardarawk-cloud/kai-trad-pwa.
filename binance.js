@@ -4,13 +4,36 @@ function num(v) {
   return n;
 }
 
+function publicBases(primary) {
+  return [...new Set([
+    primary,
+    "https://data-api.binance.vision",
+    "https://api-gcp.binance.com",
+    "https://api.binance.com",
+  ].filter(Boolean))];
+}
+
+async function publicGet(primary, path, params = {}) {
+  let lastStatus = null;
+  let lastError = null;
+  for (const base of publicBases(primary)) {
+    try {
+      const url = new URL(path, base);
+      for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (res.ok) return res;
+      lastStatus = res.status;
+      lastError = new Error(`${path} HTTP ${res.status}`);
+      if (![403, 429, 418, 500, 502, 503, 504].includes(res.status)) break;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError || new Error(`${path} HTTP ${lastStatus || "failed"}`);
+}
+
 export async function fetchKlines(baseUrl, symbol, interval, limit = 200) {
-  const url = new URL("/api/v3/klines", baseUrl);
-  url.searchParams.set("symbol", symbol);
-  url.searchParams.set("interval", interval);
-  url.searchParams.set("limit", String(limit));
-  const res = await fetch(url, { headers: { "User-Agent": "KAI-TRAD/1.0" } });
-  if (!res.ok) throw new Error(`Market data HTTP ${res.status}`);
+  const res = await publicGet(baseUrl, "/api/v3/klines", { symbol, interval, limit });
   const rows = await res.json();
   if (!Array.isArray(rows) || rows.length < 60) throw new Error("Insufficient market data");
   const closed = rows.map((r) => ({
@@ -27,10 +50,7 @@ export async function fetchKlines(baseUrl, symbol, interval, limit = 200) {
 }
 
 export async function fetchTickerPrice(baseUrl, symbol) {
-  const url = new URL("/api/v3/ticker/price", baseUrl);
-  url.searchParams.set("symbol", symbol);
-  const res = await fetch(url, { headers: { "User-Agent": "KAI-TRAD/1.0" } });
-  if (!res.ok) throw new Error(`Ticker HTTP ${res.status}`);
+  const res = await publicGet(baseUrl, "/api/v3/ticker/price", { symbol });
   const data = await res.json();
   return num(data.price);
 }
@@ -116,10 +136,7 @@ export function getFreeBalance(account, asset) {
 }
 
 export async function fetchSymbolRules(baseUrl, symbol) {
-  const url = new URL("/api/v3/exchangeInfo", baseUrl);
-  url.searchParams.set("symbol", symbol);
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Exchange info HTTP ${res.status}`);
+  const res = await publicGet(baseUrl, "/api/v3/exchangeInfo", { symbol });
   const data = await res.json();
   const item = data?.symbols?.[0];
   if (!item) throw new Error(`Unknown symbol ${symbol}`);

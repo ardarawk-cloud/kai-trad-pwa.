@@ -1,4 +1,4 @@
-# PHONE DEPLOY — KAI TRAD v1.1
+# PHONE DEPLOY
 
 GITHUB — PRODUCTION
 1. Upload all files from this extracted folder directly into the repository root.

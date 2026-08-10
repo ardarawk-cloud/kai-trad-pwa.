@@ -40,7 +40,8 @@
     "AI_VALIDATION": "true",
     "AI_MODEL": "@cf/zai-org/glm-4.7-flash",
     "ENGINE_INTERVAL_SECONDS": "60",
-    "MARKET_DATA_BASE_URL": "https://api.binance.com",
+    "MARKET_DATA_BASE_URL": "https://data-api.binance.vision",
+    "TRADE_BASE_URL": "https://api.binance.com",
     "ENABLE_LIVE_EXECUTION": "NO"
   }
 }
