@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07120f" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>KAI TRAD — AI Trading Robot</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">KT</div>
+        <div>
+          <h1>KAI TRAD</h1>
+          <p>AI AUTONOMOUS TRADING SYSTEM</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="healthBadge" class="badge muted"><span class="dot"></span>CONNECTING</span>
+        <button id="installBtn" class="icon-btn hidden" aria-label="Install app">＋</button>
+      </div>
+    </header>
+
+    <section id="authBox" class="auth-box hidden">
+      <div>
+        <strong>Admin Lock</strong>
+        <span>Masukkan ADMIN_TOKEN untuk membuka kontrol robot.</span>
+      </div>
+      <div class="auth-row">
+        <input id="adminToken" type="password" autocomplete="current-password" placeholder="ADMIN_TOKEN" />
+        <button id="unlockBtn" class="btn primary">UNLOCK</button>
+      </div>
+    </section>
+
+    <section class="hero card">
+      <div class="hero-head">
+        <div>
+          <span class="eyebrow">ACTIVE MARKET</span>
+          <div class="symbol-line">
+            <h2 id="symbol">BTCUSDT</h2>
+            <span id="modeBadge" class="badge paper">PAPER</span>
+          </div>
+        </div>
+        <div class="price-box">
+          <span>MARK PRICE</span>
+          <strong id="price">—</strong>
+        </div>
+      </div>
+      <canvas id="priceChart" height="180"></canvas>
+      <div class="signal-strip">
+        <div>
+          <span>AI SIGNAL</span>
+          <strong id="signalAction" class="signal hold">HOLD</strong>
+        </div>
+        <div>
+          <span>CONFIDENCE</span>
+          <strong id="confidence">—</strong>
+        </div>
+        <div>
+          <span>ENGINE</span>
+          <strong id="engineState">STOPPED</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="metrics-grid">
+      <article class="metric card"><span>EQUITY</span><strong id="equity">—</strong><small id="equityDelta">—</small></article>
+      <article class="metric card"><span>DAILY P&L</span><strong id="dailyPnl">—</strong><small id="dailyLimit">Risk guard —</small></article>
+      <article class="metric card"><span>REALIZED P&L</span><strong id="realizedPnl">—</strong><small id="winRate">Win rate —</small></article>
+      <article class="metric card"><span>MAX DRAWDOWN</span><strong id="drawdown">—</strong><small>Since reset</small></article>
+    </section>
+
+    <section class="controls card">
+      <div class="section-title">
+        <div><span class="eyebrow">ROBOT CONTROL</span><h3>Autonomous Engine</h3></div>
+        <span id="nextRun" class="small-status">Idle</span>
+      </div>
+      <div class="control-grid">
+        <button id="startBtn" class="btn primary big">▶ START ROBOT</button>
+        <button id="stopBtn" class="btn danger big">■ STOP</button>
+        <button id="runBtn" class="btn ghost big">◎ SCAN NOW</button>
+      </div>
+      <div id="engineError" class="error-line hidden"></div>
+    </section>
+
+    <section class="split-grid">
+      <article class="card position-card">
+        <div class="section-title"><h3>Open Position</h3><span id="positionBadge" class="badge muted">FLAT</span></div>
+        <div id="positionEmpty" class="empty">Belum ada posisi aktif.</div>
+        <div id="positionData" class="position-data hidden">
+          <div><span>Entry</span><strong id="posEntry">—</strong></div>
+          <div><span>Qty</span><strong id="posQty">—</strong></div>
+          <div><span>Stop</span><strong id="posStop">—</strong></div>
+          <div><span>Take Profit</span><strong id="posTp">—</strong></div>
+          <div><span>Trailing</span><strong id="posTrail">—</strong></div>
+          <div><span>Unrealized</span><strong id="posPnl">—</strong></div>
+        </div>
+      </article>
+
+      <article class="card indicator-card">
+        <div class="section-title"><h3>Signal Matrix</h3><span id="aiBadge" class="badge muted">AI</span></div>
+        <div class="indicator-grid">
+          <div><span>RSI 14</span><strong id="rsi">—</strong></div>
+          <div><span>ATR %</span><strong id="atr">—</strong></div>
+          <div><span>MACD</span><strong id="macd">—</strong></div>
+          <div><span>Volume</span><strong id="volume">—</strong></div>
+          <div><span>Buy Score</span><strong id="buyScore">—</strong></div>
+          <div><span>Exit Score</span><strong id="exitScore">—</strong></div>
+        </div>
+        <p id="signalReason" class="reason">Menunggu scan pertama.</p>
+      </article>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <div><span class="eyebrow">RISK ENGINE</span><h3>Trading Configuration</h3></div>
+        <button id="toggleSettings" class="btn tiny ghost">SETTINGS</button>
+      </div>
+      <form id="settingsForm" class="settings hidden">
+        <label>Symbol<select id="cfgSymbol"><option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option><option>SOLUSDT</option><option>XRPUSDT</option></select></label>
+        <label>Main TF<select id="cfgInterval"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option></select></label>
+        <label>Fast TF<select id="cfgFast"><option selected>5m</option><option>15m</option><option>30m</option><option>1h</option></select></label>
+        <label>Risk / Trade<input id="cfgRisk" type="number" min="0.25" max="2" step="0.25" /><span>%</span></label>
+        <label>Auto Stop Loss<input type="number" value="10" disabled /><span>%</span></label>
+        <label>Auto Take Profit<input type="number" value="30" disabled /><span>%</span></label>
+        <label>Max Position<input id="cfgPosition" type="number" min="5" max="50" step="5" /><span>%</span></label>
+        <label>Daily Loss Limit<input id="cfgLoss" type="number" min="1" max="8" step="0.5" /><span>%</span></label>
+        <label>Min Confidence<input id="cfgConfidence" type="number" min="60" max="90" step="1" /><span>%</span></label>
+        <label class="switch-label">AI Entry Validator<input id="cfgAi" type="checkbox" /><span class="switch"></span></label>
+        <div class="settings-actions">
+          <button type="submit" class="btn primary">SAVE CONFIG</button>
+          <button id="resetBtn" type="button" class="btn ghost">RESET PAPER</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="section-title"><div><span class="eyebrow">EXECUTION LOG</span><h3>Recent Trades</h3></div><span id="tradeCount" class="small-status">0 trades</span></div>
+      <div id="tradeList" class="trade-list"><div class="empty">Belum ada transaksi.</div></div>
+    </section>
+
+    <footer>
+      <span>KAI TRAD v1.1 • Spot • Auto SL 10% • TP 30% • No Leverage</span>
+      <span>Signal bersifat probabilistik, bukan jaminan hasil.</span>
+    </footer>
+  </main>
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kai-trad-ai",
+  "main": "./worker.js",
+  "compatibility_date": "2026-08-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TRADING_STATE",
+        "class_name": "TradingState"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["TradingState"]
+    }
+  ],
+  "vars": {
+    "TRADING_MODE": "paper",
+    "SYMBOL": "BTCUSDT",
+    "INTERVAL": "15m",
+    "FAST_INTERVAL": "5m",
+    "STARTING_BALANCE": "10000",
+    "RISK_PER_TRADE": "0.01",
+    "MAX_POSITION_PCT": "0.20",
+    "MAX_DAILY_LOSS_PCT": "0.03",
+    "MIN_SIGNAL_CONFIDENCE": "70",
+    "AI_VALIDATION": "true",
+    "AI_MODEL": "@cf/zai-org/glm-4.7-flash",
+    "ENGINE_INTERVAL_SECONDS": "60",
+    "MARKET_DATA_BASE_URL": "https://api.binance.com",
+    "ENABLE_LIVE_EXECUTION": "NO"
+  }
+}
