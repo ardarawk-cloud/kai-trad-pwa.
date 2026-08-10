@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "kai-trad-ai",
+  "name": "kai-trad-pwa",
   "main": "./worker.js",
   "compatibility_date": "2026-08-10",
   "compatibility_flags": ["nodejs_compat"],
