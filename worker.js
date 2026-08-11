@@ -2,6 +2,7 @@ import {
   analyzeMultiTimeframe,
   computeTradePlan,
   evaluateRiskExit,
+  rankScanCandidates,
   safeConfig,
   updateTrailingStop,
 } from "./engine.js";
@@ -30,11 +31,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function defaults(env) {
   const starting = Number(env.STARTING_BALANCE || 10000);
   return {
-    version: "1.3.0",
+    version: "1.4.0",
     mode: env.TRADING_MODE === "live" ? "live" : "paper",
     createdAt: nowIso(),
     config: {
       symbol: env.SYMBOL || "BTCUSDT",
+      scannerSymbols: String(env.SCAN_SYMBOLS || "BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT,XRPUSDT")
+        .split(",").map((x) => x.trim().toUpperCase()).filter(Boolean).slice(0, 5),
       interval: env.INTERVAL || "15m",
       fastInterval: env.FAST_INTERVAL || "5m",
       riskPerTrade: Number(env.RISK_PER_TRADE || 0.01),
@@ -55,6 +58,7 @@ function defaults(env) {
       cycles: 0,
       cooldownUntil: null,
       lastDecisionCandle: null,
+      lastDecisionCandles: {},
     },
     account: {
       startingBalance: starting,
@@ -72,7 +76,8 @@ function defaults(env) {
     },
     position: null,
     signal: null,
-    market: { price: null, updatedAt: null, chart: [] },
+    market: { symbol: env.SYMBOL || "BTCUSDT", price: null, updatedAt: null, chart: [] },
+    scanner: { updatedAt: null, symbols: [], bestSymbol: env.SYMBOL || "BTCUSDT", errors: [] },
     trades: [],
     signals: [],
   };
@@ -119,12 +124,12 @@ function pushLimited(arr, item, max = 100) {
   if (arr.length > max) arr.length = max;
 }
 
-async function aiValidateEntry(env, state, analysis) {
+async function aiValidateEntry(env, state, analysis, symbol = state.config.symbol) {
   if (!state.config.aiValidation) return { approved: true, confidence: 100, reason: "AI validation disabled" };
   if (!env.AI) return { approved: false, confidence: 0, reason: "AI binding unavailable" };
 
   const snapshot = {
-    symbol: state.config.symbol,
+    symbol,
     interval: state.config.interval,
     deterministicSignal: analysis.action,
     deterministicConfidence: analysis.confidence,
@@ -177,7 +182,15 @@ export class TradingState {
     // Locked policy requested for every automatic trade, including persisted state after upgrades.
     s.config.stopLossPct = 0.10;
     s.config.takeProfitPct = 0.30;
-    s.version = "1.3.0";
+    if (!Array.isArray(s.config.scannerSymbols) || !s.config.scannerSymbols.length) {
+      s.config.scannerSymbols = String(this.env.SCAN_SYMBOLS || "BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT,XRPUSDT")
+        .split(",").map((x) => x.trim().toUpperCase()).filter(Boolean).slice(0, 5);
+    }
+    s.engine.lastDecisionCandles ||= {};
+    s.scanner ||= { updatedAt: null, symbols: [], bestSymbol: s.config.symbol, errors: [] };
+    s.market ||= { symbol: s.config.symbol, price: null, updatedAt: null, chart: [] };
+    s.market.symbol ||= s.position?.symbol || s.signal?.symbol || s.config.symbol;
+    s.version = "1.4.0";
     return s;
   }
 
@@ -304,27 +317,76 @@ export class TradingState {
     }
   }
 
+  async scanSymbol(baseUrl, s, symbol) {
+    const [mainCandles, fastCandles, marketPrice] = await Promise.all([
+      fetchKlines(baseUrl, symbol, s.config.interval, 200),
+      fetchKlines(baseUrl, symbol, s.config.fastInterval, 200),
+      fetchTickerPrice(baseUrl, symbol),
+    ]);
+    const analysis = analyzeMultiTimeframe(mainCandles, fastCandles, s.config.minSignalConfidence);
+    return {
+      symbol,
+      marketPrice,
+      mainCandles,
+      fastCandles,
+      analysis,
+      decisionCandle: mainCandles.at(-1).closeTime,
+    };
+  }
+
   async runCycle(manual = false) {
     let s = await this.state();
     const baseUrl = this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision";
     const tradeBaseUrl = this.env.TRADE_BASE_URL || "https://api.binance.com";
-    const [mainCandles, fastCandles, marketPrice] = await Promise.all([
-      fetchKlines(baseUrl, s.config.symbol, s.config.interval, 200),
-      fetchKlines(baseUrl, s.config.symbol, s.config.fastInterval, 200),
-      fetchTickerPrice(baseUrl, s.config.symbol),
-    ]);
-    const analysis = analyzeMultiTimeframe(mainCandles, fastCandles, s.config.minSignalConfidence);
-    const decisionCandle = mainCandles.at(-1).closeTime;
+    const scanSymbols = [...new Set((s.config.scannerSymbols || []).slice(0, 5))];
 
+    let selected;
+    let ranked = [];
+    const scanErrors = [];
+
+    if (s.position) {
+      selected = await this.scanSymbol(baseUrl, s, s.position.symbol);
+      ranked = [selected];
+    } else {
+      const results = await Promise.allSettled(scanSymbols.map((symbol) => this.scanSymbol(baseUrl, s, symbol)));
+      const successful = [];
+      results.forEach((result, i) => {
+        if (result.status === "fulfilled") successful.push(result.value);
+        else scanErrors.push({ symbol: scanSymbols[i], error: String(result.reason?.message || result.reason || "scan failed").slice(0, 120) });
+      });
+      if (!successful.length) throw new Error(`Multi-coin scan failed: ${scanErrors.map((x) => `${x.symbol} ${x.error}`).join(" | ")}`);
+      ranked = rankScanCandidates(successful);
+      selected = ranked[0];
+    }
+
+    const { symbol, mainCandles, marketPrice, analysis, decisionCandle } = selected;
     s.market = {
+      symbol,
       price: marketPrice,
       updatedAt: nowIso(),
       chart: [...mainCandles.slice(-59).map((c) => ({ t: c.closeTime, p: c.close })), { t: Date.now(), p: marketPrice }],
     };
+    s.scanner = {
+      updatedAt: nowIso(),
+      bestSymbol: symbol,
+      errors: scanErrors,
+      symbols: ranked.map((x, index) => ({
+        rank: index + 1,
+        symbol: x.symbol,
+        action: x.analysis.action,
+        confidence: x.analysis.confidence,
+        buyConfidence: x.analysis.buyConfidence,
+        exitConfidence: x.analysis.exitConfidence,
+        price: x.marketPrice,
+        rsi: x.analysis.main.indicators.rsi,
+        atrPct: x.analysis.main.indicators.atrPct,
+        decisionCandle: x.decisionCandle,
+      })),
+    };
 
     if (s.mode === "live" && this.liveExecutionAllowed()) {
       const account = await getSpotAccount({ baseUrl: tradeBaseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
-      const rules = await fetchSymbolRules(baseUrl, s.config.symbol);
+      const rules = await fetchSymbolRules(baseUrl, s.position?.symbol || symbol);
       const quoteFree = getFreeBalance(account, rules.quoteAsset);
       if (!s.position) {
         s.account.cash = quoteFree;
@@ -343,14 +405,15 @@ export class TradingState {
 
     const riskExit = evaluateRiskExit(s.position, marketPrice);
     const blocked = dailyLossBlocked(s);
+    const lastDecision = s.engine.lastDecisionCandles?.[symbol] || s.engine.lastDecisionCandle;
     let decided = "HOLD";
-    let reason = "No qualified setup";
+    let reason = s.position ? "POSITION_MONITORING" : "NO_QUALIFIED_SETUP_ACROSS_5_MARKETS";
     let ai = null;
 
     if (s.position && riskExit) {
       decided = "SELL";
       reason = riskExit.reason;
-    } else if (s.engine.lastDecisionCandle === decisionCandle) {
+    } else if (lastDecision === decisionCandle) {
       reason = "WAIT_NEXT_CLOSED_CANDLE";
     } else if (s.position && analysis.action === "SELL") {
       decided = "SELL";
@@ -361,21 +424,26 @@ export class TradingState {
       } else if (s.engine.cooldownUntil && Date.now() < Date.parse(s.engine.cooldownUntil)) {
         reason = "COOLDOWN";
       } else {
-        ai = await aiValidateEntry(this.env, s, analysis);
+        ai = await aiValidateEntry(this.env, s, analysis, symbol);
         if (ai.approved) {
           decided = "BUY";
-          reason = "ENSEMBLE_CONFIRMED";
+          reason = "BEST_OF_5_ENSEMBLE_CONFIRMED";
         } else {
-          reason = "AI_VETO";
+          reason = "BEST_OF_5_AI_VETO";
         }
       }
     }
-    if (!riskExit && s.engine.lastDecisionCandle !== decisionCandle) s.engine.lastDecisionCandle = decisionCandle;
+
+    if (!riskExit && lastDecision !== decisionCandle) {
+      s.engine.lastDecisionCandles ||= {};
+      s.engine.lastDecisionCandles[symbol] = decisionCandle;
+      s.engine.lastDecisionCandle = decisionCandle;
+    }
 
     const signal = {
       id: crypto.randomUUID(),
       at: nowIso(),
-      symbol: s.config.symbol,
+      symbol,
       deterministicAction: analysis.action,
       action: decided,
       confidence: analysis.confidence,
@@ -387,11 +455,12 @@ export class TradingState {
       reason,
       ai,
       indicators: analysis.main.indicators,
+      scannerRank: s.scanner.symbols.find((x) => x.symbol === symbol)?.rank || 1,
     };
     s.signal = signal;
     pushLimited(s.signals, signal, 100);
 
-    if (decided === "BUY") s = await this.executeBuy(s, analysis, marketPrice);
+    if (decided === "BUY") s = await this.executeBuy(s, analysis, marketPrice, symbol);
     if (decided === "SELL" && s.position) s = await this.executeSell(s, marketPrice, reason);
 
     updateAccountMetrics(s, marketPrice);
@@ -405,7 +474,7 @@ export class TradingState {
     return s;
   }
 
-  async executeBuy(s, analysis, marketPrice) {
+  async executeBuy(s, analysis, marketPrice, symbol = s.signal?.symbol || s.config.symbol) {
     const price = marketPrice;
     const plan = computeTradePlan({
       equity: s.account.equity,
@@ -431,7 +500,7 @@ export class TradingState {
         baseUrl: this.env.TRADE_BASE_URL || "https://api.binance.com",
         apiKey: this.env.BINANCE_API_KEY,
         apiSecret: this.env.BINANCE_API_SECRET,
-        symbol: s.config.symbol,
+        symbol,
         quoteOrderQty: plan.notional,
       });
       const fill = parseFill(order, price);
@@ -448,7 +517,7 @@ export class TradingState {
     const takeProfitPct = plan.takeProfitPct;
     const trailingPct = plan.trailingPct;
     s.position = {
-      symbol: s.config.symbol,
+      symbol,
       qty: round(qty, 10),
       entryPrice: round(fillPrice, 8),
       notional: round(notional, 2),
@@ -467,19 +536,19 @@ export class TradingState {
       id: crypto.randomUUID(),
       at: nowIso(),
       side: "BUY",
-      symbol: s.config.symbol,
+      symbol,
       price: round(fillPrice, 8),
       qty: round(qty, 10),
       notional: round(notional, 2),
       pnl: null,
       mode: s.mode,
-      reason: "ENSEMBLE_CONFIRMED",
+      reason: "BEST_OF_5_ENSEMBLE_CONFIRMED",
       orderId,
     });
 
     if (s.mode === "live") {
       await sleep(200);
-      const rules = await fetchSymbolRules(this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision", s.config.symbol);
+      const rules = await fetchSymbolRules(this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision", symbol);
       const account = await getSpotAccount({ baseUrl: this.env.TRADE_BASE_URL || "https://api.binance.com", apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
       s.account.cash = getFreeBalance(account, rules.quoteAsset);
     }
@@ -498,7 +567,7 @@ export class TradingState {
       if (!this.liveExecutionAllowed()) throw new Error("Live execution lock is not satisfied");
       const marketBaseUrl = this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision";
       const tradeBaseUrl = this.env.TRADE_BASE_URL || "https://api.binance.com";
-      const rules = await fetchSymbolRules(marketBaseUrl, s.config.symbol);
+      const rules = await fetchSymbolRules(marketBaseUrl, p.symbol);
       const account = await getSpotAccount({ baseUrl: tradeBaseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
       const freeBase = getFreeBalance(account, rules.baseAsset);
       qty = floorToStep(Math.min(p.qty, freeBase), rules.stepSize);
@@ -507,7 +576,7 @@ export class TradingState {
         baseUrl: tradeBaseUrl,
         apiKey: this.env.BINANCE_API_KEY,
         apiSecret: this.env.BINANCE_API_SECRET,
-        symbol: s.config.symbol,
+        symbol: p.symbol,
         quantity: qty,
       });
       const fill = parseFill(order, marketPrice);
@@ -530,7 +599,7 @@ export class TradingState {
       id: crypto.randomUUID(),
       at: nowIso(),
       side: "SELL",
-      symbol: s.config.symbol,
+      symbol: p.symbol,
       price: round(fillPrice, 8),
       qty: round(qty, 10),
       notional: round(proceeds, 2),
@@ -559,7 +628,7 @@ export default {
       return json({
         ok: true,
         service: "KAI TRAD",
-        version: "1.3.0",
+        version: "1.4.0",
         mode: env.TRADING_MODE === "live" ? "live" : "paper",
         adminConfigured: Boolean(env.ADMIN_TOKEN),
         liveExecutionEnabled: env.ENABLE_LIVE_EXECUTION === "YES_I_ACCEPT_RISK",

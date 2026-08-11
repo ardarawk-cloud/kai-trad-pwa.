@@ -5,6 +5,7 @@ import {
   analyzeMultiTimeframe,
   computeTradePlan,
   evaluateRiskExit,
+  rankScanCandidates,
   safeConfig,
   updateTrailingStop,
 } from './engine.js';
@@ -72,4 +73,16 @@ test('safe config clamps risky inputs', () => {
   assert.equal(next.maxPositionPct, .5);
   assert.equal(next.maxDailyLossPct, .08);
   assert.equal(next.minSignalConfidence, 60);
+});
+
+
+test('multi-coin ranking prioritizes qualified BUY then strongest buy confidence', () => {
+  const ranked = rankScanCandidates([
+    { symbol: 'BTCUSDT', analysis: { action: 'HOLD', buyConfidence: 88, confidence: 88 } },
+    { symbol: 'ETHUSDT', analysis: { action: 'BUY', buyConfidence: 72, confidence: 72 } },
+    { symbol: 'SOLUSDT', analysis: { action: 'BUY', buyConfidence: 81, confidence: 81 } },
+  ]);
+  assert.equal(ranked[0].symbol, 'SOLUSDT');
+  assert.equal(ranked[1].symbol, 'ETHUSDT');
+  assert.equal(ranked[2].symbol, 'BTCUSDT');
 });

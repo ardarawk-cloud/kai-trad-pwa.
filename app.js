@@ -102,6 +102,24 @@ function renderTrades(trades = []) {
     </div>`).join("");
 }
 
+function renderScanner(scanner = {}) {
+  const list = $("scannerList");
+  if (!list) return;
+  const rows = Array.isArray(scanner.symbols) ? scanner.symbols : [];
+  $("scannerStatus").textContent = rows.length ? `${rows.length} markets • best ${scanner.bestSymbol || "—"}` : "Waiting scan";
+  if (!rows.length) {
+    list.innerHTML = '<div class="empty scanner-empty">Menunggu multi-coin scan…</div>';
+    return;
+  }
+  list.innerHTML = rows.map((x) => `
+    <div class="scanner-row ${x.rank === 1 ? "top" : ""}">
+      <div class="scanner-rank">#${x.rank}</div>
+      <div><strong>${x.symbol}</strong><small>${priceFmt(x.price)}</small></div>
+      <div><span>BUY</span><strong class="${x.buyConfidence >= 70 ? "positive" : ""}">${x.buyConfidence}%</strong></div>
+      <div><span>SIGNAL</span><strong class="signal ${(x.action || "HOLD").toLowerCase()}">${x.action || "HOLD"}</strong></div>
+    </div>`).join("");
+}
+
 function fillSettings(s) {
   $("cfgSymbol").value = s.config.symbol;
   $("cfgInterval").value = s.config.interval;
@@ -115,7 +133,7 @@ function fillSettings(s) {
 
 function render(s) {
   state = s;
-  $("symbol").textContent = s.config.symbol;
+  $("symbol").textContent = s.market?.symbol || s.position?.symbol || s.signal?.symbol || s.config.symbol;
   $("price").textContent = priceFmt(s.market?.price);
   $("modeBadge").textContent = s.mode.toUpperCase();
   $("modeBadge").className = `badge ${s.mode === "live" ? "live" : "paper"}`;
@@ -176,6 +194,7 @@ function render(s) {
 
   renderChart(s.market?.chart || []);
   renderTrades(s.trades || []);
+  renderScanner(s.scanner || {});
   fillSettings(s);
   renderNextRun();
 }

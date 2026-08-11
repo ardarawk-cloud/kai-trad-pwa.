@@ -236,6 +236,19 @@ export function evaluateRiskExit(position, price) {
   return null;
 }
 
+
+export function rankScanCandidates(candidates = []) {
+  return candidates
+    .filter((x) => x && x.symbol && x.analysis && Number.isFinite(Number(x.analysis.buyConfidence)))
+    .sort((a, b) => {
+      const actionBoostA = a.analysis.action === "BUY" ? 1000 : 0;
+      const actionBoostB = b.analysis.action === "BUY" ? 1000 : 0;
+      const byBuy = (actionBoostB + b.analysis.buyConfidence) - (actionBoostA + a.analysis.buyConfidence);
+      if (byBuy !== 0) return byBuy;
+      return Number(b.analysis.confidence || 0) - Number(a.analysis.confidence || 0);
+    });
+}
+
 export function safeConfig(input, current) {
   const allowedSymbols = new Set(["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"]);
   const allowedIntervals = new Set(["5m", "15m", "30m", "1h"]);

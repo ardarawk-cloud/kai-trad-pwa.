@@ -1,20 +1,23 @@
-# KAI TRAD PWA — PHONE FLAT BUILD v1.0
+# KAI TRAD PWA v1.4 — Multi-Coin Auto Scanner
 
-Phone-first Cloudflare Worker + PWA trading control center.
+Phone-flat Cloudflare Workers build.
 
-## GitHub upload
-Upload every file in this folder directly to the repository root. No folders need to be uploaded manually.
+## v1.4
+- Auto-scan 5 Spot markets: BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, XRPUSDT.
+- Rank setup quality every engine cycle.
+- Only one open position at a time.
+- Entry candidate = highest-ranked qualified BUY setup.
+- AI validates only the selected best candidate.
+- When a position is open, risk monitoring stays locked to that position's symbol.
+- Hard Stop Loss 10% and Take Profit 30% remain locked.
+- Paper mode remains default; live execution remains locked.
+- Public market-data fallback from v1.3 remains active.
 
-## Cloudflare build/deploy
-- Build command: `npm run build`
-- Deploy command: `npm run deploy`
+## Phone deploy
+Upload/replace all root files in the GitHub `kai-trad-pwa` repo, then commit to `main`. Cloudflare Git integration auto-builds and deploys.
 
-`npm run build` automatically creates the `dist/` asset folder inside Cloudflare's build environment.
+## Test
+`npm test`
 
-## Safety default
-- Paper mode by default.
-- Spot long/flat only.
-- Live execution remains locked unless all required secrets are configured and `ENABLE_LIVE_EXECUTION` is explicitly changed.
-
-## v1.3 Market Data Hotfix
-Public market-data traffic uses Binance's market-data-only endpoint first (`data-api.binance.vision`) with official REST endpoint fallbacks. Live/private trading remains isolated on `TRADE_BASE_URL` (`api.binance.com`).
+## Build
+`npm run build`

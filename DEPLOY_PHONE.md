@@ -1,11 +1,15 @@
-# PHONE DEPLOY
+# KAI TRAD v1.4 — PHONE DEPLOY
 
 GITHUB — PRODUCTION
-1. Upload all files from this extracted folder directly into the repository root.
-2. Commit to `main`.
+1. Extract ZIP.
+2. Upload/replace all files in repository root.
+3. Commit to `main`.
 
 CLOUDFLARE — PRODUCTION
-1. Connect the GitHub repository.
-2. Build command: `npm run build`
-3. Deploy command: `npm run deploy`
-4. Keep live trading disabled until paper testing is complete.
+- No manual change required.
+- Wait for Git auto-deploy to become Active.
+
+PWA — PRODUCTION
+- Refresh.
+- MULTI-COIN AUTO SCANNER should show 5 ranked markets after a scan.
+- Start Robot to run automatically.

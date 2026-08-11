@@ -78,6 +78,14 @@
       <article class="metric card"><span>MAX DRAWDOWN</span><strong id="drawdown">—</strong><small>Since reset</small></article>
     </section>
 
+    <section class="card scanner-card">
+      <div class="section-title">
+        <div><span class="eyebrow">MULTI-COIN AUTO SCANNER</span><h3>Best Setup Ranking</h3></div>
+        <span id="scannerStatus" class="small-status">Waiting scan</span>
+      </div>
+      <div id="scannerList" class="scanner-list"><div class="empty scanner-empty">Menunggu multi-coin scan…</div></div>
+    </section>
+
     <section class="controls card">
       <div class="section-title">
         <div><span class="eyebrow">ROBOT CONTROL</span><h3>Autonomous Engine</h3></div>
@@ -125,7 +133,7 @@
         <button id="toggleSettings" class="btn tiny ghost">SETTINGS</button>
       </div>
       <form id="settingsForm" class="settings hidden">
-        <label>Symbol<select id="cfgSymbol"><option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option><option>SOLUSDT</option><option>XRPUSDT</option></select></label>
+        <label>Primary / Fallback<select id="cfgSymbol"><option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option><option>SOLUSDT</option><option>XRPUSDT</option></select></label>
         <label>Main TF<select id="cfgInterval"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option></select></label>
         <label>Fast TF<select id="cfgFast"><option selected>5m</option><option>15m</option><option>30m</option><option>1h</option></select></label>
         <label>Risk / Trade<input id="cfgRisk" type="number" min="0.25" max="2" step="0.25" /><span>%</span></label>
@@ -146,7 +154,7 @@
     </section>
 
     <footer>
-      <span>KAI TRAD v1.0 • Spot • No Leverage</span>
+      <span>KAI TRAD v1.4 • Multi-Coin • Spot • No Leverage</span>
       <span>Signal bersifat probabilistik, bukan jaminan hasil.</span>
     </footer>
   </main>
