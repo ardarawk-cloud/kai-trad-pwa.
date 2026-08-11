@@ -1,6 +1,11 @@
-# KAI TRAD PWA v1.4 — Multi-Coin Auto Scanner
+# KAI TRAD PWA v1.5 — Monochrome Candle UI
 
 Phone-flat Cloudflare Workers build.
+
+## v1.5
+- Main chart upgraded from line chart to candlestick chart.
+- Visual theme changed to monochrome (black / white / gray).
+- Multi-coin scanner from v1.4 remains active.
 
 ## v1.4
 - Auto-scan 5 Spot markets: BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, XRPUSDT.

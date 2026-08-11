@@ -1,4 +1,4 @@
-# KAI TRAD v1.4 — PHONE DEPLOY
+# KAI TRAD v1.5 — PHONE DEPLOY
 
 GITHUB — PRODUCTION
 1. Extract ZIP.
@@ -13,3 +13,6 @@ PWA — PRODUCTION
 - Refresh.
 - MULTI-COIN AUTO SCANNER should show 5 ranked markets after a scan.
 - Start Robot to run automatically.
+
+- After deploy, refresh PWA.
+- Main chart should display monochrome candlesticks.

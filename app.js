@@ -51,38 +51,68 @@ function renderChart(points = []) {
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, rect.width, rect.height);
-  if (points.length < 2) {
-    ctx.fillStyle = "rgba(120,148,137,.7)";
+
+  const candles = points.map((x, i, arr) => {
+    if (x && ["o", "h", "l", "c"].every((k) => Number.isFinite(Number(x[k])))) {
+      return { t: x.t, o: Number(x.o), h: Number(x.h), l: Number(x.l), c: Number(x.c) };
+    }
+    if (x && Number.isFinite(Number(x.p))) {
+      const prev = i > 0 && Number.isFinite(Number(arr[i - 1]?.p)) ? Number(arr[i - 1].p) : Number(x.p);
+      return { t: x.t, o: prev, h: Math.max(prev, Number(x.p)), l: Math.min(prev, Number(x.p)), c: Number(x.p) };
+    }
+    return null;
+  }).filter(Boolean);
+
+  if (candles.length < 2) {
+    ctx.fillStyle = "rgba(190,190,190,.75)";
     ctx.font = "12px system-ui";
     ctx.fillText("Menunggu data market…", 12, rect.height / 2);
     return;
   }
-  const prices = points.map((x) => Number(x.p));
-  const min = Math.min(...prices), max = Math.max(...prices);
+
+  const highs = candles.map((x) => x.h);
+  const lows = candles.map((x) => x.l);
+  const min = Math.min(...lows);
+  const max = Math.max(...highs);
   const span = Math.max(max - min, max * 0.001);
-  const pad = 8;
-  const x = (i) => pad + (i / (points.length - 1)) * (rect.width - pad * 2);
-  const y = (p) => rect.height - pad - ((p - min) / span) * (rect.height - pad * 2);
-  const grad = ctx.createLinearGradient(0, 0, 0, rect.height);
-  grad.addColorStop(0, "rgba(112,255,183,.25)");
-  grad.addColorStop(1, "rgba(112,255,183,0)");
-  ctx.beginPath();
-  ctx.moveTo(x(0), y(prices[0]));
-  prices.forEach((p, i) => ctx.lineTo(x(i), y(p)));
-  ctx.lineTo(x(prices.length - 1), rect.height);
-  ctx.lineTo(x(0), rect.height);
-  ctx.closePath();
-  ctx.fillStyle = grad;
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(x(0), y(prices[0]));
-  prices.forEach((p, i) => ctx.lineTo(x(i), y(p)));
-  ctx.strokeStyle = "#70ffb7";
-  ctx.lineWidth = 2;
-  ctx.shadowColor = "rgba(112,255,183,.5)";
-  ctx.shadowBlur = 10;
-  ctx.stroke();
-  ctx.shadowBlur = 0;
+  const pad = 10;
+  const plotW = rect.width - pad * 2;
+  const plotH = rect.height - pad * 2;
+  const slot = plotW / candles.length;
+  const bodyW = Math.max(3, Math.min(10, slot * 0.58));
+  const y = (p) => rect.height - pad - ((p - min) / span) * plotH;
+
+  ctx.strokeStyle = "rgba(255,255,255,.06)";
+  ctx.lineWidth = 1;
+  for (let i = 1; i <= 3; i++) {
+    const gy = pad + (plotH / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad, gy);
+    ctx.lineTo(rect.width - pad, gy);
+    ctx.stroke();
+  }
+
+  candles.forEach((c, i) => {
+    const cx = pad + slot * i + slot / 2;
+    const yo = y(c.o), yh = y(c.h), yl = y(c.l), yc = y(c.c);
+    const up = c.c >= c.o;
+    const wickColor = up ? "rgba(245,245,245,.9)" : "rgba(148,148,148,.95)";
+    const bodyColor = up ? "#f2f2f2" : "#707070";
+    ctx.strokeStyle = wickColor;
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    ctx.moveTo(cx, yh);
+    ctx.lineTo(cx, yl);
+    ctx.stroke();
+
+    const top = Math.min(yo, yc);
+    const bottom = Math.max(yo, yc);
+    const height = Math.max(1.5, bottom - top);
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(cx - bodyW / 2, top, bodyW, height);
+    ctx.strokeStyle = bodyColor;
+    ctx.strokeRect(cx - bodyW / 2, top, bodyW, height);
+  });
 }
 
 function renderTrades(trades = []) {

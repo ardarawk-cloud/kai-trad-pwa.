@@ -364,7 +364,16 @@ export class TradingState {
       symbol,
       price: marketPrice,
       updatedAt: nowIso(),
-      chart: [...mainCandles.slice(-59).map((c) => ({ t: c.closeTime, p: c.close })), { t: Date.now(), p: marketPrice }],
+      chart: [
+        ...mainCandles.slice(-40).map((c) => ({ t: c.closeTime, o: c.open, h: c.high, l: c.low, c: c.close })),
+        {
+          t: Date.now(),
+          o: mainCandles.at(-1).close,
+          h: Math.max(mainCandles.at(-1).close, marketPrice),
+          l: Math.min(mainCandles.at(-1).close, marketPrice),
+          c: marketPrice,
+        },
+      ],
     };
     s.scanner = {
       updatedAt: nowIso(),
