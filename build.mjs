@@ -3,6 +3,7 @@ import { mkdir, rm, copyFile } from "node:fs/promises";
 const staticFiles = [
   "index.html",
   "app.js",
+  "broker-v183.js",
   "app.css",
   "sw.js",
   "icon.svg",
