@@ -1,13 +1,14 @@
-const CACHE = "kai-trad-v183-indodax-primary";
-const STATIC = ["/", "/index.html", "/app.css", "/app.js", "/manifest.webmanifest", "/icon.svg", "/kai-trad-logo.png", "/pwa-icon-192.png", "/pwa-icon-512.png"];
+const CACHE = "kai-trad-v190-paper-hardening";
+const STATIC = ["/", "/index.html", "/app.css", "/app.js", "/broker-v183.js", "/manifest.webmanifest", "/icon.svg", "/kai-trad-logo.png", "/pwa-icon-192.png", "/pwa-icon-512.png"];
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((c) => c.addAll(STATIC)).then(() => self.skipWaiting())));
 self.addEventListener("activate", (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  if (url.pathname.startsWith("/api/")) return;
-  event.respondWith(fetch(event.request).then((res) => {
+  const req = event.request;
+  const url = new URL(req.url);
+  if (req.method !== "GET" || url.pathname.startsWith("/api/")) return;
+  event.respondWith(fetch(req).then((res) => {
     const copy = res.clone();
-    caches.open(CACHE).then((c) => c.put(event.request, copy));
+    caches.open(CACHE).then((c) => c.put(req, copy));
     return res;
-  }).catch(() => caches.match(event.request).then((r) => r || caches.match("/index.html"))));
+  }).catch(() => caches.match(req).then((cached) => cached || caches.match("/index.html"))));
 });

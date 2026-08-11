@@ -20,12 +20,20 @@ async function brokerState() {
   return res.json();
 }
 
+function applyReleaseLabel() {
+  const eyebrow = document.querySelector(".broker-card .eyebrow");
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.9.0";
+  const footer = document.querySelector("footer span");
+  if (footer) footer.textContent = "KAI TRAD v1.9.0 • Indodax Primary Public Route • PAPER Only";
+}
+
 function applyIndodaxPrimary(s) {
   const b = s?.broker || {};
   const indo = b.indodaxCheck || {};
   const toko = b.tokocryptoCheck || b.lastCheck || {};
   const compatibility = String(b.compatibility || "NOT_CHECKED");
   const indoOnline = Boolean(indo.reachable) || compatibility === "INDODAX_FALLBACK_OK";
+  const pairReady = indoOnline && indo.symbolSupported !== false;
   const tokoWaf = String(toko.error || "").includes("403") || String(b.tokocryptoStatus || "").includes("WAF");
 
   const primary = $b("brokerPrimary");
@@ -47,19 +55,19 @@ function applyIndodaxPrimary(s) {
     live.className = "";
   }
   if (keys) {
-    keys.textContent = "NOT CONFIGURED";
+    keys.textContent = "NOT REQUIRED (PAPER)";
     keys.className = "";
   }
   if (badge) {
-    badge.textContent = indoOnline ? "INDODAX READY" : "LIVE LOCKED";
-    badge.className = `badge ${indoOnline ? "paper" : "muted"}`;
+    badge.textContent = pairReady ? "INDODAX READY" : indoOnline ? "API ONLINE • CHECK PAIR" : "LIVE LOCKED";
+    badge.className = `badge ${pairReady ? "paper" : "muted"}`;
   }
   if (meta) {
     if (indo.checkedAt) {
-      const supported = indo.symbolSupported === false ? " • pair belum tersedia" : "";
+      const supported = indo.symbolSupported === false ? " • pair belum tersedia di Indodax" : "";
       meta.textContent = indoOnline
-        ? `Indodax public API ONLINE${supported} • Live tetap terkunci.`
-        : `${indo.error || "Indodax public preflight gagal"} • Live tetap terkunci.`;
+        ? `Indodax public API ONLINE${supported} • PAPER only.`
+        : `${indo.error || "Indodax public preflight gagal"} • PAPER only.`;
     } else {
       meta.textContent = "Public preflight only • tidak mengirim order.";
     }
@@ -90,7 +98,9 @@ function installIndodaxCheck() {
       await refreshBroker();
       const s = await brokerState();
       const indo = s?.broker?.indodaxCheck || {};
-      brokerToast(indo.reachable ? "Indodax public API ONLINE" : `Indodax check: HTTP ${res.status}`);
+      if (indo.reachable && indo.symbolSupported !== false) brokerToast("Indodax public API + pair ONLINE");
+      else if (indo.reachable) brokerToast("Indodax API ONLINE • pair perlu dicek");
+      else brokerToast(`Indodax check: HTTP ${res.status}`);
     } catch (e) {
       brokerToast(e.message || "Indodax check gagal");
     } finally {
@@ -100,6 +110,7 @@ function installIndodaxCheck() {
 }
 
 window.addEventListener("load", () => {
+  applyReleaseLabel();
   installIndodaxCheck();
   refreshBroker();
   setInterval(refreshBroker, 15000);
