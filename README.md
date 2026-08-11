@@ -1,6 +1,11 @@
-# KAI TRAD PWA v1.5 — Monochrome Candle UI
+# KAI TRAD PWA v1.5.1 — Monochrome UI + Color Indicators
 
 Phone-flat Cloudflare Workers build.
+
+## v1.5.1
+- Monochrome UI retained.
+- Status and indicator colors restored for easier differentiation (BUY green, SELL red, HOLD amber, ONLINE/RUNNING green).
+- Candlestick chart remains monochrome.
 
 ## v1.5
 - Main chart upgraded from line chart to candlestick chart.
