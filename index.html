@@ -124,19 +124,19 @@
 
     <section class="card broker-card">
       <div class="section-title">
-        <div><span class="eyebrow">BROKER CONNECTOR v1.8.1</span><h3>Spot Execution Bridge</h3></div>
+        <div><span class="eyebrow">BROKER CONNECTOR v1.8.3</span><h3>Spot Execution Bridge</h3></div>
         <span id="brokerBadge" class="badge muted">LOCKED</span>
       </div>
       <div class="broker-grid">
-        <div><span>PRIMARY</span><strong id="brokerPrimary">TOKOCRYPTO</strong></div>
+        <div><span>PRIMARY</span><strong id="brokerPrimary">INDODAX</strong></div>
         <div><span>API KEYS</span><strong id="brokerKeys">NOT CONFIGURED</strong></div>
         <div><span>PUBLIC API</span><strong id="brokerReachable">NOT CHECKED</strong></div>
         <div><span>LIVE STAGE</span><strong id="brokerLiveStage">LOCKED</strong></div>
-        <div><span>SECONDARY</span><strong id="brokerSecondary">INDODAX • STANDBY</strong></div>
+        <div><span>SECONDARY</span><strong id="brokerSecondary">TOKOCRYPTO • STANDBY</strong></div>
         <div><span>WITHDRAWAL</span><strong class="positive">DISABLED</strong></div>
       </div>
       <div class="broker-actions">
-        <button id="brokerCheckBtn" class="btn scan-control">◎ CHECK TOKOCRYPTO</button>
+        <button id="brokerCheckBtn" class="btn scan-control">◎ CHECK INDODAX</button>
         <small id="brokerCheckMeta">Public preflight only • tidak mengirim order.</small>
       </div>
     </section>
@@ -241,11 +241,12 @@
     </section>
 
     <footer>
-      <span>KAI TRAD v1.8.1 • Tokocrypto Public API WAF Fix • Live Locked</span>
+      <span>KAI TRAD v1.8.3 • Indodax Primary Broker • Live Locked</span>
       <span>Signal bersifat probabilistik, bukan jaminan hasil.</span>
     </footer>
   </main>
   <div id="toast" class="toast hidden"></div>
   <script type="module" src="/app.js"></script>
+  <script type="module" src="/broker-v183.js"></script>
 </body>
 </html>
