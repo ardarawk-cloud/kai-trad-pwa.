@@ -1,7 +1,17 @@
+import { fetchIndodaxKlines, fetchIndodaxTickerPrice } from "./indodax.js";
+
 function num(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) throw new Error(`Invalid numeric value: ${v}`);
   return n;
+}
+
+function isIndodaxBase(baseUrl) {
+  try {
+    return new URL(baseUrl).hostname.toLowerCase().endsWith("indodax.com");
+  } catch {
+    return false;
+  }
 }
 
 function publicBases(primary) {
@@ -33,6 +43,7 @@ async function publicGet(primary, path, params = {}) {
 }
 
 export async function fetchKlines(baseUrl, symbol, interval, limit = 200) {
+  if (isIndodaxBase(baseUrl)) return fetchIndodaxKlines(baseUrl, symbol, interval, limit);
   const res = await publicGet(baseUrl, "/api/v3/klines", { symbol, interval, limit });
   const rows = await res.json();
   if (!Array.isArray(rows) || rows.length < 60) throw new Error("Insufficient market data");
@@ -50,6 +61,7 @@ export async function fetchKlines(baseUrl, symbol, interval, limit = 200) {
 }
 
 export async function fetchTickerPrice(baseUrl, symbol) {
+  if (isIndodaxBase(baseUrl)) return fetchIndodaxTickerPrice(baseUrl, symbol);
   const res = await publicGet(baseUrl, "/api/v3/ticker/price", { symbol });
   const data = await res.json();
   return num(data.price);
