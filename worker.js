@@ -14,14 +14,17 @@ import {
 import {
   fetchKlines,
   fetchTickerPrice,
-  fetchSymbolRules,
   floorToStep,
-  getFreeBalance,
-  getSpotAccount,
-  parseFill,
-  placeMarketBuy,
-  placeMarketSell,
 } from "./binance.js";
+import {
+  fetchTokocryptoSymbolRules,
+  getTokocryptoFreeBalance,
+  getTokocryptoSpotAccount,
+  placeTokocryptoMarketBuy,
+  placeTokocryptoMarketSell,
+  tokocryptoPublicPreflight,
+  waitForTokocryptoFill,
+} from "./tokocrypto.js";
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -36,7 +39,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function defaults(env) {
   const starting = Number(env.STARTING_BALANCE || 10000);
   return {
-    version: "1.7.0",
+    version: "1.8.0",
     mode: env.TRADING_MODE === "live" ? "live" : "paper",
     createdAt: nowIso(),
     config: {
@@ -94,6 +97,11 @@ function defaults(env) {
     signal: null,
     market: { symbol: env.SYMBOL || "BTCUSDT", price: null, updatedAt: null, chart: [] },
     scanner: { updatedAt: null, symbols: [], bestSymbol: env.SYMBOL || "BTCUSDT", errors: [] },
+    broker: {
+      primary: String(env.PRIMARY_BROKER || "tokocrypto").toLowerCase(),
+      secondary: "indodax",
+      lastCheck: null,
+    },
     trades: [],
     signals: [],
     decisionLog: [],
@@ -216,11 +224,14 @@ export class TradingState {
     s.scanner ||= { updatedAt: null, symbols: [], bestSymbol: s.config.symbol, errors: [] };
     s.market ||= { symbol: s.config.symbol, price: null, updatedAt: null, chart: [] };
     s.decisionLog ||= [];
+    s.broker ||= { primary: String(this.env.PRIMARY_BROKER || "tokocrypto").toLowerCase(), secondary: "indodax", lastCheck: null };
+    s.broker.primary = String(this.env.PRIMARY_BROKER || s.broker.primary || "tokocrypto").toLowerCase();
+    s.broker.secondary ||= "indodax";
     s.engine.breaker ||= { active: false, reason: null, until: null };
     s.account.consecutiveLosses ??= 0;
     s.account.maxConsecutiveLossesSeen ??= 0;
     s.market.symbol ||= s.position?.symbol || s.signal?.symbol || s.config.symbol;
-    s.version = "1.7.0";
+    s.version = "1.8.0";
     return s;
   }
 
@@ -229,9 +240,17 @@ export class TradingState {
   }
 
   liveExecutionAllowed() {
+    const primary = String(this.env.PRIMARY_BROKER || "tokocrypto").toLowerCase();
     return this.env.TRADING_MODE === "live" &&
+      primary === "tokocrypto" &&
+      this.env.BROKER_LIVE_STAGE === "APPROVED_AFTER_PREFLIGHT" &&
       this.env.ENABLE_LIVE_EXECUTION === "YES_I_ACCEPT_RISK" &&
-      Boolean(this.env.BINANCE_API_KEY) && Boolean(this.env.BINANCE_API_SECRET) && Boolean(this.env.ADMIN_TOKEN);
+      this.env.TOKOCRYPTO_LIVE_ACK === "I_UNDERSTAND_SPOT_RISK" &&
+      Boolean(this.env.TOKOCRYPTO_API_KEY) && Boolean(this.env.TOKOCRYPTO_API_SECRET) && Boolean(this.env.ADMIN_TOKEN);
+  }
+
+  brokerCredentialsConfigured() {
+    return Boolean(this.env.TOKOCRYPTO_API_KEY) && Boolean(this.env.TOKOCRYPTO_API_SECRET);
   }
 
   async schedule(seconds = Number(this.env.ENGINE_INTERVAL_SECONDS || 60)) {
@@ -248,6 +267,7 @@ export class TradingState {
     if (path.endsWith("/stop") && request.method === "POST") return this.stop();
     if (path.endsWith("/run") && request.method === "POST") return this.manualRun();
     if (path.endsWith("/config") && request.method === "POST") return this.updateConfig(request);
+    if (path.endsWith("/broker/check") && request.method === "POST") return this.brokerCheck();
     if (path.endsWith("/reset") && request.method === "POST") return this.resetPaper();
     if (path.endsWith("/export")) return json(await this.state());
     return json({ error: "Not found" }, 404);
@@ -293,14 +313,46 @@ export class TradingState {
         maxExecutionErrors: 3,
         cooldownUntil: s.engine.cooldownUntil,
       },
+      broker: {
+        primary: s.broker?.primary || "tokocrypto",
+        secondary: s.broker?.secondary || "indodax",
+        lastCheck: s.broker?.lastCheck || null,
+        credentialsConfigured: this.brokerCredentialsConfigured(),
+        liveStage: this.env.BROKER_LIVE_STAGE || "LOCKED",
+        liveExecutionReady: this.liveExecutionAllowed(),
+        withdrawalSupport: false,
+        indodaxStatus: "STANDBY",
+      },
       capabilities: {
         ai: Boolean(this.env.AI),
         adminConfigured: Boolean(this.env.ADMIN_TOKEN),
         liveExecutionReady: this.liveExecutionAllowed(),
+        broker: s.broker?.primary || "tokocrypto",
         leverage: false,
         market: "spot",
       },
     };
+  }
+
+  async brokerCheck() {
+    const s = await this.state();
+    try {
+      const check = await tokocryptoPublicPreflight({
+        baseUrl: this.env.TOKOCRYPTO_API_BASE_URL || "https://www.tokocrypto.com",
+        symbol: s.config.symbol,
+      });
+      s.broker ||= { primary: "tokocrypto", secondary: "indodax", lastCheck: null };
+      s.broker.lastCheck = { ...check, checkedAt: nowIso(), error: null };
+      s.engine.lastAction = "BROKER_PREFLIGHT_PASS";
+      await this.save(s);
+      return json(await this.publicState());
+    } catch (e) {
+      s.broker ||= { primary: "tokocrypto", secondary: "indodax", lastCheck: null };
+      s.broker.lastCheck = { broker: "tokocrypto", reachable: false, checkedAt: nowIso(), error: e.message };
+      s.engine.lastAction = "BROKER_PREFLIGHT_FAIL";
+      await this.save(s);
+      return json(await this.publicState(), 503);
+    }
   }
 
   async start() {
@@ -481,9 +533,10 @@ export class TradingState {
     };
 
     if (s.mode === "live" && this.liveExecutionAllowed()) {
-      const account = await getSpotAccount({ baseUrl: tradeBaseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
-      const rules = await fetchSymbolRules(baseUrl, s.position?.symbol || symbol);
-      const quoteFree = getFreeBalance(account, rules.quoteAsset);
+      const tokoBaseUrl = this.env.TOKOCRYPTO_API_BASE_URL || "https://www.tokocrypto.com";
+      const account = await getTokocryptoSpotAccount({ baseUrl: tokoBaseUrl, apiKey: this.env.TOKOCRYPTO_API_KEY, apiSecret: this.env.TOKOCRYPTO_API_SECRET });
+      const rules = await fetchTokocryptoSymbolRules({ baseUrl: tokoBaseUrl, symbol: s.position?.symbol || symbol });
+      const quoteFree = getTokocryptoFreeBalance(account, rules.quoteAsset);
       if (!s.position) {
         s.account.cash = quoteFree;
         if (!s.account.liveSynced) {
@@ -615,20 +668,26 @@ export class TradingState {
 
     if (s.mode === "live") {
       if (!this.liveExecutionAllowed()) throw new Error("Live execution lock is not satisfied");
-      const marketBaseUrl = this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision";
-      const rules = await fetchSymbolRules(marketBaseUrl, symbol);
+      const tokoBaseUrl = this.env.TOKOCRYPTO_API_BASE_URL || "https://www.tokocrypto.com";
+      const rules = await fetchTokocryptoSymbolRules({ baseUrl: tokoBaseUrl, symbol });
       const guard = validateExecutionRules({ notional: plan.notional, quantity: plan.qty, price, rules });
       if (!guard.ok) throw new Error(`Execution guard blocked BUY: ${guard.errors.join(",")}`);
       const clientOrderId = `kaiB${Date.now().toString(36)}${crypto.randomUUID().slice(0, 6)}`.slice(0, 32);
-      const order = await placeMarketBuy({
-        baseUrl: this.env.TRADE_BASE_URL || "https://api.binance.com",
-        apiKey: this.env.BINANCE_API_KEY,
-        apiSecret: this.env.BINANCE_API_SECRET,
+      const order = await placeTokocryptoMarketBuy({
+        baseUrl: tokoBaseUrl,
+        apiKey: this.env.TOKOCRYPTO_API_KEY,
+        apiSecret: this.env.TOKOCRYPTO_API_SECRET,
         symbol,
         quoteOrderQty: plan.notional,
         clientOrderId,
       });
-      const fill = parseFill(order, price);
+      const fill = await waitForTokocryptoFill({
+        baseUrl: tokoBaseUrl,
+        apiKey: this.env.TOKOCRYPTO_API_KEY,
+        apiSecret: this.env.TOKOCRYPTO_API_SECRET,
+        order,
+        fallbackPrice: price,
+      });
       fillPrice = fill.price;
       qty = fill.executedQty;
       notional = fill.quoteQty || plan.notional;
@@ -674,9 +733,10 @@ export class TradingState {
 
     if (s.mode === "live") {
       await sleep(200);
-      const rules = await fetchSymbolRules(this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision", symbol);
-      const account = await getSpotAccount({ baseUrl: this.env.TRADE_BASE_URL || "https://api.binance.com", apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
-      s.account.cash = getFreeBalance(account, rules.quoteAsset);
+      const tokoBaseUrl = this.env.TOKOCRYPTO_API_BASE_URL || "https://www.tokocrypto.com";
+      const rules = await fetchTokocryptoSymbolRules({ baseUrl: tokoBaseUrl, symbol });
+      const account = await getTokocryptoSpotAccount({ baseUrl: tokoBaseUrl, apiKey: this.env.TOKOCRYPTO_API_KEY, apiSecret: this.env.TOKOCRYPTO_API_SECRET });
+      s.account.cash = getTokocryptoFreeBalance(account, rules.quoteAsset);
     }
     return s;
   }
@@ -691,30 +751,35 @@ export class TradingState {
 
     if (s.mode === "live") {
       if (!this.liveExecutionAllowed()) throw new Error("Live execution lock is not satisfied");
-      const marketBaseUrl = this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision";
-      const tradeBaseUrl = this.env.TRADE_BASE_URL || "https://api.binance.com";
-      const rules = await fetchSymbolRules(marketBaseUrl, p.symbol);
-      const account = await getSpotAccount({ baseUrl: tradeBaseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
-      const freeBase = getFreeBalance(account, rules.baseAsset);
+      const tokoBaseUrl = this.env.TOKOCRYPTO_API_BASE_URL || "https://www.tokocrypto.com";
+      const rules = await fetchTokocryptoSymbolRules({ baseUrl: tokoBaseUrl, symbol: p.symbol });
+      const account = await getTokocryptoSpotAccount({ baseUrl: tokoBaseUrl, apiKey: this.env.TOKOCRYPTO_API_KEY, apiSecret: this.env.TOKOCRYPTO_API_SECRET });
+      const freeBase = getTokocryptoFreeBalance(account, rules.baseAsset);
       qty = floorToStep(Math.min(p.qty, freeBase), rules.stepSize);
       const guard = validateExecutionRules({ notional: qty * marketPrice, quantity: qty, price: marketPrice, rules });
       if (!guard.ok) throw new Error(`Execution guard blocked SELL: ${guard.errors.join(",")}`);
       const clientOrderId = `kaiS${Date.now().toString(36)}${crypto.randomUUID().slice(0, 6)}`.slice(0, 32);
-      const order = await placeMarketSell({
-        baseUrl: tradeBaseUrl,
-        apiKey: this.env.BINANCE_API_KEY,
-        apiSecret: this.env.BINANCE_API_SECRET,
+      const order = await placeTokocryptoMarketSell({
+        baseUrl: tokoBaseUrl,
+        apiKey: this.env.TOKOCRYPTO_API_KEY,
+        apiSecret: this.env.TOKOCRYPTO_API_SECRET,
         symbol: p.symbol,
         quantity: qty,
         clientOrderId,
       });
-      const fill = parseFill(order, marketPrice);
+      const fill = await waitForTokocryptoFill({
+        baseUrl: tokoBaseUrl,
+        apiKey: this.env.TOKOCRYPTO_API_KEY,
+        apiSecret: this.env.TOKOCRYPTO_API_SECRET,
+        order,
+        fallbackPrice: marketPrice,
+      });
       fillPrice = fill.price;
       proceeds = fill.quoteQty || qty * fillPrice;
       orderId = fill.orderId;
       await sleep(200);
-      const refreshed = await getSpotAccount({ baseUrl: tradeBaseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
-      s.account.cash = getFreeBalance(refreshed, rules.quoteAsset);
+      const refreshed = await getTokocryptoSpotAccount({ baseUrl: tokoBaseUrl, apiKey: this.env.TOKOCRYPTO_API_KEY, apiSecret: this.env.TOKOCRYPTO_API_SECRET });
+      s.account.cash = getTokocryptoFreeBalance(refreshed, rules.quoteAsset);
     } else {
       fee = proceeds * 0.001;
       s.account.cash += proceeds - fee;
@@ -771,9 +836,12 @@ export default {
       return json({
         ok: true,
         service: "KAI TRAD",
-        version: "1.7.0",
+        version: "1.8.0",
         mode: env.TRADING_MODE === "live" ? "live" : "paper",
+        broker: String(env.PRIMARY_BROKER || "tokocrypto").toLowerCase(),
         adminConfigured: Boolean(env.ADMIN_TOKEN),
+        brokerCredentialsConfigured: Boolean(env.TOKOCRYPTO_API_KEY) && Boolean(env.TOKOCRYPTO_API_SECRET),
+        liveStage: env.BROKER_LIVE_STAGE || "LOCKED",
         liveExecutionEnabled: env.ENABLE_LIVE_EXECUTION === "YES_I_ACCEPT_RISK",
         time: nowIso(),
       });

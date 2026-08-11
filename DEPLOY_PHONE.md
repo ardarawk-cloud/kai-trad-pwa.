@@ -1,16 +1,24 @@
-# KAI TRAD v1.7 — PHONE DEPLOY
+KAI TRAD v1.8 — TOKOCRYPTO BROKER CONNECTOR
 
 GITHUB — PRODUCTION
-1. Extract ZIP.
-2. Upload/replace every file in repository root `kai-trad-pwa`.
-3. Commit to `main`.
+1. Replace/upload semua file paket ini ke root repo.
+2. Jangan upload node_modules.
+3. Commit: KAI TRAD v1.8 Tokocrypto Connector
 
 CLOUDFLARE — PRODUCTION
-- No manual setting change required.
-- Wait until latest Git deployment becomes Active.
+1. Tunggu GitHub auto-deploy selesai.
+2. Jangan ubah secret atau live switch pada tahap ini.
+3. Pastikan deployment Active 100%.
 
 PWA — PRODUCTION
-- Refresh/reopen the PWA.
-- Confirm Performance Core, Safety Core v2, Daily Goal, and PC Fund panels appear.
-- Keep PAPER mode for validation.
-- If changing Paper Capital, save Settings then press RESET PAPER to apply it.
+1. Tutup lalu buka KAI TRAD.
+2. Jika cache lama masih tampil, refresh sekali.
+3. Cari panel BROKER CONNECTOR v1.8.
+4. Tekan CHECK TOKOCRYPTO.
+5. PASS yang diharapkan: PUBLIC API = ONLINE dan badge CONNECTOR READY.
+
+PENTING
+- TRADING_MODE tetap PAPER.
+- Live trading tetap LOCKED.
+- Tidak ada withdrawal API di connector.
+- API key/secret nanti masuk Cloudflare Secrets, bukan GitHub.

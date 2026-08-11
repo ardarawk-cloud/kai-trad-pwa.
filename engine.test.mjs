@@ -135,3 +135,35 @@ test('execution guard enforces notional and quantity bounds', () => {
   const ok = validateExecutionRules({ notional: 20, quantity: .01, price: 100, rules: { minNotional: 5, minQty: .001, maxQty: 10 } });
   assert.equal(ok.ok, true);
 });
+
+import { toTokocryptoSymbol, toMarketSymbol, parseTokocryptoSymbolRules, parseTokocryptoFill } from './tokocrypto.js';
+
+test('tokocrypto symbol mapping preserves broker and market formats', () => {
+  assert.equal(toTokocryptoSymbol('BTCUSDT'), 'BTC_USDT');
+  assert.equal(toTokocryptoSymbol('TKO_IDR'), 'TKO_IDR');
+  assert.equal(toMarketSymbol('BTC_USDT'), 'BTCUSDT');
+});
+
+test('tokocrypto rules parser uses LOT_SIZE when MARKET_LOT_SIZE step is zero', () => {
+  const rules = parseTokocryptoSymbolRules({
+    symbol: 'BTC_USDT', baseAsset: 'BTC', quoteAsset: 'USDT', spotTradingEnable: 1,
+    orderTypes: ['LIMIT', 'MARKET'],
+    filters: [
+      { filterType: 'LOT_SIZE', minQty: '0.0001', maxQty: '10', stepSize: '0.0001' },
+      { filterType: 'MARKET_LOT_SIZE', minQty: '0', maxQty: '0', stepSize: '0' },
+      { filterType: 'NOTIONAL', minNotional: '5', applyToMarket: true },
+    ],
+  });
+  assert.equal(rules.status, 'TRADING');
+  assert.equal(rules.marketOrderAllowed, true);
+  assert.equal(rules.stepSize, 0.0001);
+  assert.equal(rules.minNotional, 5);
+});
+
+test('tokocrypto fill parser calculates weighted price from executed amounts', () => {
+  const fill = parseTokocryptoFill({ data: { orderId: 7, status: 2, executedQty: '0.002', executedQuoteQty: '200' } }, 99999);
+  assert.equal(fill.executedQty, 0.002);
+  assert.equal(fill.quoteQty, 200);
+  assert.equal(fill.price, 100000);
+  assert.equal(fill.status, 2);
+});

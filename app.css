@@ -25,3 +25,12 @@
 .performance-card,.safety-card{margin-bottom:12px}.performance-grid,.safety-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:16px}.safety-grid{grid-template-columns:repeat(4,1fr)}.performance-grid>div,.safety-grid>div{padding:13px;background:rgba(255,255,255,.018);border:1px solid rgba(255,255,255,.05);border-radius:12px}.performance-grid span,.safety-grid span{display:block;color:var(--muted);font-size:9px;letter-spacing:.1em;font-weight:700}.performance-grid strong,.safety-grid strong{display:block;margin-top:6px;font-size:13px}.performance-grid>div:nth-child(4) strong{font-size:12px}.safety-card{border-color:rgba(112,255,183,.10)}
 @media(max-width:760px){.goal-grid{grid-template-columns:1fr}.performance-grid{grid-template-columns:1fr 1fr 1fr}.safety-grid{grid-template-columns:1fr 1fr}.goal-amount strong{font-size:22px}}
 @media(max-width:390px){.performance-grid{grid-template-columns:1fr 1fr}.goal-amount{align-items:flex-start;flex-direction:column}.goal-amount span{text-align:left}}
+
+/* v1.8 Broker Connector */
+.broker-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.broker-grid>div{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);border-radius:16px;padding:14px;min-width:0}
+.broker-grid span{display:block;font-size:10px;letter-spacing:.16em;color:#858585;margin-bottom:7px}
+.broker-grid strong{font-size:13px;line-height:1.35;word-break:break-word}
+.broker-actions{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+.broker-actions small{color:#838383;line-height:1.45;flex:1;min-width:180px}
+@media(max-width:640px){.broker-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.broker-actions .btn{width:100%}}

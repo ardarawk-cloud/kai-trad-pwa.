@@ -221,6 +221,31 @@ function renderPerformance(s) {
   $("sampleStatus").className = `badge ${p.closedTrades >= 30 ? "good" : "muted"}`;
 }
 
+function renderBroker(s) {
+  const b = s.broker || {};
+  const check = b.lastCheck || {};
+  const ready = Boolean(b.liveExecutionReady);
+  $("brokerPrimary").textContent = String(b.primary || "tokocrypto").toUpperCase();
+  $("brokerSecondary").textContent = `${String(b.secondary || "indodax").toUpperCase()} • ${b.indodaxStatus || "STANDBY"}`;
+  $("brokerKeys").textContent = b.credentialsConfigured ? "CONFIGURED" : "NOT CONFIGURED";
+  $("brokerKeys").className = b.credentialsConfigured ? "positive" : "";
+  $("brokerLiveStage").textContent = ready ? "READY" : String(b.liveStage || "LOCKED").replaceAll("_", " ");
+  $("brokerLiveStage").className = ready ? "positive" : "";
+  if (check.checkedAt) {
+    $("brokerReachable").textContent = check.reachable ? "ONLINE" : "FAILED";
+    $("brokerReachable").className = check.reachable ? "positive" : "negative";
+    $("brokerCheckMeta").textContent = check.reachable
+      ? `${check.symbol || "—"} • ${check.latencyMs ?? "—"}ms • min ${check.minNotional ?? "—"} ${check.quoteAsset || ""} • ${timeWita(check.checkedAt)}`
+      : `${check.error || "Public preflight gagal"} • ${timeWita(check.checkedAt)}`;
+  } else {
+    $("brokerReachable").textContent = "NOT CHECKED";
+    $("brokerReachable").className = "";
+    $("brokerCheckMeta").textContent = "Public preflight only • tidak mengirim order.";
+  }
+  $("brokerBadge").textContent = ready ? "LIVE READY" : (check.reachable ? "CONNECTOR READY" : "LIVE LOCKED");
+  $("brokerBadge").className = `badge ${ready ? "good" : check.reachable ? "paper" : "muted"}`;
+}
+
 function renderSafety(s) {
   const safety = s.safety || {};
   const breaker = safety.breaker || {};
@@ -327,6 +352,7 @@ function render(s) {
   renderFinance(s);
   renderPerformance(s);
   renderSafety(s);
+  renderBroker(s);
   fillSettings(s);
   renderNextRun();
 }
@@ -378,6 +404,20 @@ async function action(path, message) {
 $("startBtn").addEventListener("click", () => action("/api/start", "Robot dimulai"));
 $("stopBtn").addEventListener("click", () => action("/api/stop", "Robot dihentikan"));
 $("runBtn").addEventListener("click", () => action("/api/run", "Scan selesai"));
+$("brokerCheckBtn").addEventListener("click", async () => {
+  const btn = $("brokerCheckBtn");
+  btn.disabled = true;
+  try {
+    const s = await api("/api/broker/check", { method: "POST", body: "{}" });
+    render(s);
+    toast("Tokocrypto connector PASS");
+  } catch (e) {
+    toast(e.message);
+    await loadState(true);
+  } finally {
+    btn.disabled = false;
+  }
+});
 $("toggleSettings").addEventListener("click", () => $("settingsForm").classList.toggle("hidden"));
 
 $("settingsForm").addEventListener("submit", async (e) => {
