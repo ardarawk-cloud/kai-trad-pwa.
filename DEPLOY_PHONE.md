@@ -1,3 +1,9 @@
+KAI TRAD v1.6.2
+- transparent white wolf logo
+- larger header logo
+- PWA icon matched
+- engine updates retained
+
 # KAI TRAD v1.6.1 — PHONE DEPLOY
 
 GITHUB — PRODUCTION

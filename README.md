@@ -1,3 +1,9 @@
+## v1.6.2
+- Wolf logo changed to pure white with transparent background.
+- Header logo enlarged to better match KAI TRAD wordmark.
+- PWA/app icon aligned to the same white wolf logo.
+- Minor engine polish retained from v1.6.1 build.
+
 # KAI TRAD PWA v1.6.1 — Wolf Identity + Market Regime
 
 Phone-flat Cloudflare Workers build.
