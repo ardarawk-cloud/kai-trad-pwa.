@@ -1,0 +1,33 @@
+{
+  "schema": "ACC_DIVISION_SYNC_V1",
+  "divisionId": "kai-trad",
+  "name": "KAI TRAD",
+  "division": "ACC Finance / Trading",
+  "ownerRole": "KAI TRAD",
+  "repository": "ardarawk-cloud/kai-trad-pwa.",
+  "branch": "main",
+  "version": "v1.9",
+  "lifecycle": "ACTIVE",
+  "operationalStatus": "PAPER_HARDENING",
+  "summary": "Indodax-primary paper trading workspace with Safety Core and performance monitoring.",
+  "appUrl": null,
+  "sync": {
+    "direction": "DIVISION_TO_ACC",
+    "mode": "READ_ONLY",
+    "sourceOfTruth": "DIVISION_REPOSITORY",
+    "pollable": true
+  },
+  "capabilities": [
+    "Trading Dashboard",
+    "Strategy Engine",
+    "Risk Control",
+    "Bot Status",
+    "Trade Journal",
+    "Performance Analytics"
+  ],
+  "safety": {
+    "tradingMode": "PAPER",
+    "liveExecution": "LOCKED"
+  },
+  "updatedAt": "2026-08-12T03:24:00+08:00"
+}
