@@ -25,6 +25,7 @@ import {
   tokocryptoPublicPreflight,
   waitForTokocryptoFill,
 } from "./tokocrypto.js";
+import { indodaxPublicPreflight } from "./indodax.js";
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -39,7 +40,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function defaults(env) {
   const starting = Number(env.STARTING_BALANCE || 10000);
   return {
-    version: "1.8.0",
+    version: "1.8.1",
     mode: env.TRADING_MODE === "live" ? "live" : "paper",
     createdAt: nowIso(),
     config: {
@@ -231,7 +232,7 @@ export class TradingState {
     s.account.consecutiveLosses ??= 0;
     s.account.maxConsecutiveLossesSeen ??= 0;
     s.market.symbol ||= s.position?.symbol || s.signal?.symbol || s.config.symbol;
-    s.version = "1.8.0";
+    s.version = "1.8.1";
     return s;
   }
 
@@ -313,16 +314,26 @@ export class TradingState {
         maxExecutionErrors: 3,
         cooldownUntil: s.engine.cooldownUntil,
       },
-      broker: {
-        primary: s.broker?.primary || "tokocrypto",
-        secondary: s.broker?.secondary || "indodax",
-        lastCheck: s.broker?.lastCheck || null,
-        credentialsConfigured: this.brokerCredentialsConfigured(),
-        liveStage: this.env.BROKER_LIVE_STAGE || "LOCKED",
-        liveExecutionReady: this.liveExecutionAllowed(),
-        withdrawalSupport: false,
-        indodaxStatus: "STANDBY",
-      },
+      broker: (() => {
+        const toko = s.broker?.lastCheck || null;
+        const indo = s.broker?.indodaxCheck || null;
+        const fallback = Boolean(toko?.checkedAt && !toko?.reachable && indo?.reachable);
+        return {
+          primary: fallback ? "indodax" : (s.broker?.primary || "tokocrypto"),
+          secondary: fallback ? "tokocrypto" : (s.broker?.secondary || "indodax"),
+          lastCheck: fallback ? indo : toko,
+          credentialsConfigured: fallback ? false : this.brokerCredentialsConfigured(),
+          liveStage: this.env.BROKER_LIVE_STAGE || "LOCKED",
+          liveExecutionReady: this.liveExecutionAllowed(),
+          withdrawalSupport: false,
+          indodaxStatus: fallback
+            ? (String(toko?.error || "").includes("403") ? "WAF BLOCKED" : "FAILED")
+            : (indo?.reachable ? "ONLINE" : (indo?.checkedAt ? "FAILED" : "STANDBY")),
+          indodaxCheck: indo,
+          compatibility: s.broker?.compatibility || "NOT_CHECKED",
+          tokocryptoCheck: toko,
+        };
+      })(),
       capabilities: {
         ai: Boolean(this.env.AI),
         adminConfigured: Boolean(this.env.ADMIN_TOKEN),
@@ -336,23 +347,36 @@ export class TradingState {
 
   async brokerCheck() {
     const s = await this.state();
-    try {
-      const check = await tokocryptoPublicPreflight({
-        baseUrl: this.env.TOKOCRYPTO_API_BASE_URL || "https://www.tokocrypto.com",
+    const checkedAt = nowIso();
+    const [tokoResult, indodaxResult] = await Promise.allSettled([
+      tokocryptoPublicPreflight({
+        publicBaseUrl: this.env.TOKOCRYPTO_PUBLIC_BASE_URL || "https://www.tokocrypto.site",
         symbol: s.config.symbol,
-      });
-      s.broker ||= { primary: "tokocrypto", secondary: "indodax", lastCheck: null };
-      s.broker.lastCheck = { ...check, checkedAt: nowIso(), error: null };
-      s.engine.lastAction = "BROKER_PREFLIGHT_PASS";
-      await this.save(s);
-      return json(await this.publicState());
-    } catch (e) {
-      s.broker ||= { primary: "tokocrypto", secondary: "indodax", lastCheck: null };
-      s.broker.lastCheck = { broker: "tokocrypto", reachable: false, checkedAt: nowIso(), error: e.message };
-      s.engine.lastAction = "BROKER_PREFLIGHT_FAIL";
-      await this.save(s);
-      return json(await this.publicState(), 503);
+      }),
+      indodaxPublicPreflight({
+        baseUrl: this.env.INDODAX_API_BASE_URL || "https://indodax.com",
+        symbol: s.config.symbol,
+      }),
+    ]);
+
+    const toko = tokoResult.status === "fulfilled"
+      ? { ...tokoResult.value, checkedAt, error: null }
+      : { broker: "tokocrypto", reachable: false, checkedAt, error: String(tokoResult.reason?.message || tokoResult.reason || "Tokocrypto probe failed") };
+    const indodax = indodaxResult.status === "fulfilled"
+      ? { ...indodaxResult.value, checkedAt, error: null }
+      : { broker: "indodax", reachable: false, checkedAt, error: String(indodaxResult.reason?.message || indodaxResult.reason || "Indodax probe failed") };
+
+    s.broker ||= { primary: "tokocrypto", secondary: "indodax", lastCheck: null };
+    s.broker.lastCheck = toko;
+    s.broker.indodaxCheck = indodax;
+    s.broker.compatibility = toko.reachable ? "TOKOCRYPTO_PUBLIC_OK" : indodax.reachable ? "INDODAX_FALLBACK_OK" : "NO_BROKER_REACHABLE";
+    s.engine.lastAction = toko.reachable || indodax.reachable ? "BROKER_COMPATIBILITY_PASS" : "BROKER_COMPATIBILITY_FAIL";
+    await this.save(s);
+    if (toko.reachable) return json(await this.publicState());
+    if (indodax.reachable) {
+      return json({ error: "Tokocrypto WAF blocked • Indodax fallback ONLINE" }, 409);
     }
+    return json({ error: `Broker probe failed • Tokocrypto: ${toko.error || "FAILED"} • Indodax: ${indodax.error || "FAILED"}` }, 503);
   }
 
   async start() {
@@ -836,7 +860,7 @@ export default {
       return json({
         ok: true,
         service: "KAI TRAD",
-        version: "1.8.0",
+        version: "1.8.1",
         mode: env.TRADING_MODE === "live" ? "live" : "paper",
         broker: String(env.PRIMARY_BROKER || "tokocrypto").toLowerCase(),
         adminConfigured: Boolean(env.ADMIN_TOKEN),
