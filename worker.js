@@ -2,11 +2,13 @@ import {
   analyzeMultiTimeframe,
   computeTradePlan,
   computeTradeQuality,
+  computePerformanceStats,
   detectMarketRegime,
   isRegimeEntryEligible,
   evaluateRiskExit,
   rankScanCandidates,
   safeConfig,
+  validateExecutionRules,
   updateTrailingStop,
 } from "./engine.js";
 import {
@@ -34,7 +36,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function defaults(env) {
   const starting = Number(env.STARTING_BALANCE || 10000);
   return {
-    version: "1.6.0",
+    version: "1.7.0",
     mode: env.TRADING_MODE === "live" ? "live" : "paper",
     createdAt: nowIso(),
     config: {
@@ -49,6 +51,14 @@ function defaults(env) {
       maxPositionPct: Number(env.MAX_POSITION_PCT || 0.2),
       maxDailyLossPct: Number(env.MAX_DAILY_LOSS_PCT || 0.03),
       minSignalConfidence: Number(env.MIN_SIGNAL_CONFIDENCE || 70),
+      paperStartingBalanceUsd: starting,
+      usdIdrRate: Number(env.USD_IDR_RATE || 17850),
+      dailyGoalMinUsd: Number(env.DAILY_GOAL_MIN_USD || 3),
+      dailyGoalMaxUsd: Number(env.DAILY_GOAL_MAX_USD || 5),
+      pcFundTargetIdr: Number(env.PC_FUND_TARGET_IDR || 0),
+      pcFundSavedIdr: Number(env.PC_FUND_SAVED_IDR || 0),
+      maxConsecutiveLosses: Number(env.MAX_CONSECUTIVE_LOSSES || 3),
+      lossStreakCooldownMinutes: Number(env.LOSS_STREAK_COOLDOWN_MINUTES || 240),
       aiValidation: String(env.AI_VALIDATION || "true") === "true",
     },
     engine: {
@@ -60,6 +70,7 @@ function defaults(env) {
       consecutiveErrors: 0,
       cycles: 0,
       cooldownUntil: null,
+      breaker: { active: false, reason: null, until: null },
       lastDecisionCandle: null,
       lastDecisionCandles: {},
     },
@@ -76,6 +87,8 @@ function defaults(env) {
       maxDrawdownPct: 0,
       wins: 0,
       losses: 0,
+      consecutiveLosses: 0,
+      maxConsecutiveLossesSeen: 0,
     },
     position: null,
     signal: null,
@@ -186,6 +199,15 @@ export class TradingState {
     // Locked policy requested for every automatic trade, including persisted state after upgrades.
     s.config.stopLossPct = 0.10;
     s.config.takeProfitPct = 0.30;
+    const d = defaults(this.env);
+    s.config.paperStartingBalanceUsd ??= d.config.paperStartingBalanceUsd;
+    s.config.usdIdrRate ??= d.config.usdIdrRate;
+    s.config.dailyGoalMinUsd ??= d.config.dailyGoalMinUsd;
+    s.config.dailyGoalMaxUsd ??= d.config.dailyGoalMaxUsd;
+    s.config.pcFundTargetIdr ??= d.config.pcFundTargetIdr;
+    s.config.pcFundSavedIdr ??= d.config.pcFundSavedIdr;
+    s.config.maxConsecutiveLosses ??= d.config.maxConsecutiveLosses;
+    s.config.lossStreakCooldownMinutes ??= d.config.lossStreakCooldownMinutes;
     if (!Array.isArray(s.config.scannerSymbols) || !s.config.scannerSymbols.length) {
       s.config.scannerSymbols = String(this.env.SCAN_SYMBOLS || "BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT,XRPUSDT")
         .split(",").map((x) => x.trim().toUpperCase()).filter(Boolean).slice(0, 5);
@@ -194,8 +216,11 @@ export class TradingState {
     s.scanner ||= { updatedAt: null, symbols: [], bestSymbol: s.config.symbol, errors: [] };
     s.market ||= { symbol: s.config.symbol, price: null, updatedAt: null, chart: [] };
     s.decisionLog ||= [];
+    s.engine.breaker ||= { active: false, reason: null, until: null };
+    s.account.consecutiveLosses ??= 0;
+    s.account.maxConsecutiveLossesSeen ??= 0;
     s.market.symbol ||= s.position?.symbol || s.signal?.symbol || s.config.symbol;
-    s.version = "1.6.0";
+    s.version = "1.7.0";
     return s;
   }
 
@@ -230,8 +255,44 @@ export class TradingState {
 
   async publicState() {
     const s = await this.state();
+    const performance = computePerformanceStats(s.trades || []);
+    const rate = Number(s.config.usdIdrRate || 0);
+    const targetMin = Number(s.config.dailyGoalMinUsd || 0);
+    const targetMax = Math.max(targetMin, Number(s.config.dailyGoalMaxUsd || targetMin));
+    const positiveDaily = Math.max(0, Number(s.account.dailyPnl || 0));
+    const pcTarget = Number(s.config.pcFundTargetIdr || 0);
+    const pcSaved = Number(s.config.pcFundSavedIdr || 0);
     return {
       ...s,
+      performance,
+      financeDisplay: {
+        usdIdrRate: rate,
+        dailyGoal: {
+          minUsd: targetMin,
+          maxUsd: targetMax,
+          minIdr: round(targetMin * rate, 0),
+          maxIdr: round(targetMax * rate, 0),
+          todayUsd: round(Number(s.account.dailyPnl || 0), 2),
+          todayIdr: round(Number(s.account.dailyPnl || 0) * rate, 0),
+          progressPct: targetMin > 0 ? round(Math.max(0, Math.min(100, positiveDaily / targetMin * 100)), 1) : 0,
+        },
+        pcFund: {
+          targetIdr: pcTarget,
+          savedIdr: pcSaved,
+          remainingIdr: Math.max(0, pcTarget - pcSaved),
+          progressPct: pcTarget > 0 ? round(Math.min(100, pcSaved / pcTarget * 100), 1) : 0,
+          potentialTodayIdr: round(positiveDaily * rate, 0),
+        },
+      },
+      safety: {
+        breaker: s.engine.breaker || { active: false },
+        dailyLossBlocked: dailyLossBlocked(s),
+        consecutiveLosses: s.account.consecutiveLosses || performance.consecutiveLosses || 0,
+        maxConsecutiveLosses: s.config.maxConsecutiveLosses,
+        consecutiveErrors: s.engine.consecutiveErrors || 0,
+        maxExecutionErrors: 3,
+        cooldownUntil: s.engine.cooldownUntil,
+      },
       capabilities: {
         ai: Boolean(this.env.AI),
         adminConfigured: Boolean(this.env.ADMIN_TOKEN),
@@ -292,6 +353,12 @@ export class TradingState {
     if (s.mode !== "paper") return json({ error: "Reset is disabled in live mode." }, 409);
     const fresh = defaults(this.env);
     fresh.config = s.config;
+    const starting = Number(s.config.paperStartingBalanceUsd || fresh.account.startingBalance);
+    fresh.account.startingBalance = starting;
+    fresh.account.cash = starting;
+    fresh.account.equity = starting;
+    fresh.account.dailyStartEquity = starting;
+    fresh.account.peakEquity = starting;
     fresh.engine.running = false;
     await this.ctx.storage.deleteAlarm();
     await this.save(fresh);
@@ -308,10 +375,11 @@ export class TradingState {
       failed.engine.lastError = e.message;
       failed.engine.consecutiveErrors = (failed.engine.consecutiveErrors || 0) + 1;
       failed.engine.lastAction = "ERROR";
-      if (failed.engine.consecutiveErrors >= 5) {
+      if (failed.engine.consecutiveErrors >= 3) {
         failed.engine.running = false;
         failed.engine.lastAction = "HALTED_AFTER_ERRORS";
         failed.engine.nextRunAt = null;
+        failed.engine.breaker = { active: true, reason: "API_ERROR_STREAK", until: null };
       }
       await this.save(failed);
     }
@@ -350,6 +418,10 @@ export class TradingState {
     const baseUrl = this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision";
     const tradeBaseUrl = this.env.TRADE_BASE_URL || "https://api.binance.com";
     const scanSymbols = [...new Set((s.config.scannerSymbols || []).slice(0, 5))];
+    if (s.engine.cooldownUntil && Date.now() >= Date.parse(s.engine.cooldownUntil)) {
+      s.engine.cooldownUntil = null;
+      if (s.engine.breaker?.reason === "LOSS_STREAK") s.engine.breaker = { active: false, reason: null, until: null };
+    }
 
     let selected;
     let ranked = [];
@@ -443,10 +515,15 @@ export class TradingState {
       decided = "SELL";
       reason = "MULTI_TIMEFRAME_EXIT";
     } else if (!s.position && analysis.action === "BUY") {
-      if (!entryEligible) {
+      const abnormalMarket = Number(analysis.main?.indicators?.atrPct || 0) > 5 || Number(analysis.main?.indicators?.volumeRatio || 0) > 6;
+      if (abnormalMarket) {
+        reason = "ABNORMAL_MARKET_GUARD";
+      } else if (!entryEligible) {
         reason = `REGIME_FILTER_${regime?.regime || "UNKNOWN"}`;
       } else if (blocked) {
         reason = "DAILY_LOSS_CIRCUIT_BREAKER";
+      } else if ((s.account.consecutiveLosses || 0) >= s.config.maxConsecutiveLosses && s.engine.cooldownUntil && Date.now() < Date.parse(s.engine.cooldownUntil)) {
+        reason = "LOSS_STREAK_BREAKER";
       } else if (s.engine.cooldownUntil && Date.now() < Date.parse(s.engine.cooldownUntil)) {
         reason = "COOLDOWN";
       } else {
@@ -538,12 +615,18 @@ export class TradingState {
 
     if (s.mode === "live") {
       if (!this.liveExecutionAllowed()) throw new Error("Live execution lock is not satisfied");
+      const marketBaseUrl = this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision";
+      const rules = await fetchSymbolRules(marketBaseUrl, symbol);
+      const guard = validateExecutionRules({ notional: plan.notional, quantity: plan.qty, price, rules });
+      if (!guard.ok) throw new Error(`Execution guard blocked BUY: ${guard.errors.join(",")}`);
+      const clientOrderId = `kaiB${Date.now().toString(36)}${crypto.randomUUID().slice(0, 6)}`.slice(0, 32);
       const order = await placeMarketBuy({
         baseUrl: this.env.TRADE_BASE_URL || "https://api.binance.com",
         apiKey: this.env.BINANCE_API_KEY,
         apiSecret: this.env.BINANCE_API_SECRET,
         symbol,
         quoteOrderQty: plan.notional,
+        clientOrderId,
       });
       const fill = parseFill(order, price);
       fillPrice = fill.price;
@@ -583,6 +666,7 @@ export class TradingState {
       qty: round(qty, 10),
       notional: round(notional, 2),
       pnl: null,
+      fee: round(fee, 4),
       mode: s.mode,
       reason: "BEST_OF_5_REGIME_AI_CONFIRMED",
       orderId,
@@ -613,13 +697,16 @@ export class TradingState {
       const account = await getSpotAccount({ baseUrl: tradeBaseUrl, apiKey: this.env.BINANCE_API_KEY, apiSecret: this.env.BINANCE_API_SECRET });
       const freeBase = getFreeBalance(account, rules.baseAsset);
       qty = floorToStep(Math.min(p.qty, freeBase), rules.stepSize);
-      if (qty < rules.minQty || qty <= 0) throw new Error("Live sell quantity is below exchange minimum");
+      const guard = validateExecutionRules({ notional: qty * marketPrice, quantity: qty, price: marketPrice, rules });
+      if (!guard.ok) throw new Error(`Execution guard blocked SELL: ${guard.errors.join(",")}`);
+      const clientOrderId = `kaiS${Date.now().toString(36)}${crypto.randomUUID().slice(0, 6)}`.slice(0, 32);
       const order = await placeMarketSell({
         baseUrl: tradeBaseUrl,
         apiKey: this.env.BINANCE_API_KEY,
         apiSecret: this.env.BINANCE_API_SECRET,
         symbol: p.symbol,
         quantity: qty,
+        clientOrderId,
       });
       const fill = parseFill(order, marketPrice);
       fillPrice = fill.price;
@@ -635,8 +722,15 @@ export class TradingState {
 
     const pnl = (proceeds - fee) - p.cost;
     s.account.realizedPnl += pnl;
-    if (pnl >= 0) s.account.wins += 1;
-    else s.account.losses += 1;
+    if (pnl >= 0) {
+      s.account.wins += 1;
+      s.account.consecutiveLosses = 0;
+      if (s.engine.breaker?.reason === "LOSS_STREAK") s.engine.breaker = { active: false, reason: null, until: null };
+    } else {
+      s.account.losses += 1;
+      s.account.consecutiveLosses = (s.account.consecutiveLosses || 0) + 1;
+      s.account.maxConsecutiveLossesSeen = Math.max(s.account.maxConsecutiveLossesSeen || 0, s.account.consecutiveLosses);
+    }
     pushLimited(s.trades, {
       id: crypto.randomUUID(),
       at: nowIso(),
@@ -646,12 +740,19 @@ export class TradingState {
       qty: round(qty, 10),
       notional: round(proceeds, 2),
       pnl: round(pnl, 2),
+      fee: round(fee, 4),
+      holdingMinutes: Math.max(0, round((Date.now() - Date.parse(p.openedAt || nowIso())) / 60000, 1)),
+      entryPrice: p.entryPrice,
       mode: s.mode,
       reason,
       orderId,
     });
     s.position = null;
-    s.engine.cooldownUntil = new Date(Date.now() + 15 * 60_000).toISOString();
+    const baseCooldown = 15;
+    const lossBreaker = (s.account.consecutiveLosses || 0) >= s.config.maxConsecutiveLosses;
+    const cooldownMinutes = lossBreaker ? s.config.lossStreakCooldownMinutes : baseCooldown;
+    s.engine.cooldownUntil = new Date(Date.now() + cooldownMinutes * 60_000).toISOString();
+    if (lossBreaker) s.engine.breaker = { active: true, reason: "LOSS_STREAK", until: s.engine.cooldownUntil };
     return s;
   }
 }
@@ -670,7 +771,7 @@ export default {
       return json({
         ok: true,
         service: "KAI TRAD",
-        version: "1.6.0",
+        version: "1.7.0",
         mode: env.TRADING_MODE === "live" ? "live" : "paper",
         adminConfigured: Boolean(env.ADMIN_TOKEN),
         liveExecutionEnabled: env.ENABLE_LIVE_EXECUTION === "YES_I_ACCEPT_RISK",

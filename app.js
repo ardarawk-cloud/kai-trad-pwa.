@@ -5,6 +5,7 @@ let deferredInstall = null;
 let pollTimer = null;
 
 const money = (n) => Number.isFinite(Number(n)) ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(Number(n)) : "—";
+const moneyIdr = (n) => Number.isFinite(Number(n)) ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(n)) : "—";
 const priceFmt = (n) => Number.isFinite(Number(n)) ? new Intl.NumberFormat("en-US", { maximumFractionDigits: Number(n) < 10 ? 6 : 2 }).format(Number(n)) : "—";
 const pct = (n) => Number.isFinite(Number(n)) ? `${Number(n).toFixed(2)}%` : "—";
 const timeWita = (v) => v ? new Date(v).toLocaleString("id-ID", { timeZone: "Asia/Makassar", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
@@ -181,6 +182,65 @@ function renderDecisions(decisions = []) {
     </div>`).join("");
 }
 
+
+function renderFinance(s) {
+  const rate = Number(s.financeDisplay?.usdIdrRate || s.config?.usdIdrRate || 0);
+  $("equityIdr").textContent = rate ? moneyIdr(Number(s.account.equity || 0) * rate) : "—";
+  $("dailyPnlIdr").textContent = rate ? moneyIdr(Number(s.account.dailyPnl || 0) * rate) : "—";
+  $("realizedPnlIdr").textContent = rate ? moneyIdr(Number(s.account.realizedPnl || 0) * rate) : "—";
+
+  const dg = s.financeDisplay?.dailyGoal || {};
+  $("dailyGoalUsd").textContent = `$${Number(dg.minUsd || 0).toFixed(0)}–${Number(dg.maxUsd || 0).toFixed(0)}`;
+  $("dailyGoalIdr").textContent = `${moneyIdr(dg.minIdr || 0)} – ${moneyIdr(dg.maxIdr || 0)}`;
+  $("dailyGoalBar").style.width = `${Math.max(0, Math.min(100, Number(dg.progressPct || 0)))}%`;
+  $("dailyGoalProgress").textContent = `${money(dg.todayUsd || 0)} hari ini • ${moneyIdr(dg.todayIdr || 0)} • goal tidak memaksa entry`;
+  $("goalStatus").textContent = Number(dg.todayUsd || 0) >= Number(dg.minUsd || Infinity) ? "MIN GOAL HIT" : "TRACKING";
+  $("goalStatus").className = `badge ${Number(dg.todayUsd || 0) >= Number(dg.minUsd || Infinity) ? "good" : "muted"}`;
+
+  const pc = s.financeDisplay?.pcFund || {};
+  $("pcFundSaved").textContent = moneyIdr(pc.savedIdr || 0);
+  $("pcFundTarget").textContent = Number(pc.targetIdr || 0) > 0 ? `Target ${moneyIdr(pc.targetIdr)}` : "Target belum diatur";
+  $("pcFundBar").style.width = `${Math.max(0, Math.min(100, Number(pc.progressPct || 0)))}%`;
+  $("pcFundProgress").textContent = Number(pc.targetIdr || 0) > 0
+    ? `${Number(pc.progressPct || 0).toFixed(1)}% • sisa ${moneyIdr(pc.remainingIdr || 0)} • potensi hari ini ${moneyIdr(pc.potentialTodayIdr || 0)}`
+    : `Atur target di Settings • potensi hari ini ${moneyIdr(pc.potentialTodayIdr || 0)}`;
+  $("pcFundStatus").textContent = Number(pc.targetIdr || 0) > 0 ? `${Number(pc.progressPct || 0).toFixed(0)}%` : "SET TARGET";
+  $("pcFundStatus").className = `badge ${Number(pc.progressPct || 0) >= 100 ? "good" : "muted"}`;
+}
+
+function renderPerformance(s) {
+  const p = s.performance || {};
+  $("perfClosed").textContent = p.closedTrades ?? 0;
+  $("perfWinRate").textContent = p.closedTrades ? `${Number(p.winRatePct || 0).toFixed(1)}%` : "—";
+  $("perfFactor").textContent = p.profitFactor == null ? (p.closedTrades ? "∞" : "—") : Number(p.profitFactor).toFixed(2);
+  setSigned($("perfExpectancy"), p.expectancyUsd || 0, p.closedTrades ? money(p.expectancyUsd || 0) : "—");
+  $("perfAvg").textContent = p.closedTrades ? `${money(p.avgWinUsd || 0)} / ${money(p.avgLossUsd || 0)}` : "—";
+  $("perfHold").textContent = p.avgHoldMinutes == null ? "—" : `${Number(p.avgHoldMinutes).toFixed(0)}m`;
+  const status = String(p.sampleStatus || "COLLECTING_DATA").replaceAll("_", " ");
+  $("sampleStatus").textContent = status;
+  $("sampleStatus").className = `badge ${p.closedTrades >= 30 ? "good" : "muted"}`;
+}
+
+function renderSafety(s) {
+  const safety = s.safety || {};
+  const breaker = safety.breaker || {};
+  const active = Boolean(breaker.active || safety.dailyLossBlocked);
+  $("safetyBadge").textContent = active ? `HALTED • ${String(breaker.reason || "DAILY LOSS").replaceAll("_", " ")}` : "ARMED";
+  $("safetyBadge").className = `badge ${active ? "live" : "good"}`;
+  $("lossStreak").textContent = `${safety.consecutiveLosses || 0} / ${safety.maxConsecutiveLosses || 3}`;
+  $("apiErrors").textContent = `${safety.consecutiveErrors || 0} / ${safety.maxExecutionErrors || 3}`;
+  if (safety.cooldownUntil && Date.parse(safety.cooldownUntil) > Date.now()) {
+    const mins = Math.max(1, Math.ceil((Date.parse(safety.cooldownUntil) - Date.now()) / 60000));
+    $("cooldownState").textContent = `${mins}m`;
+    $("cooldownState").className = "negative";
+  } else {
+    $("cooldownState").textContent = "CLEAR";
+    $("cooldownState").className = "positive";
+  }
+  $("liveLock").textContent = s.capabilities?.liveExecutionReady ? "READY" : "LOCKED";
+  $("liveLock").className = s.capabilities?.liveExecutionReady ? "positive" : "";
+}
+
 function fillSettings(s) {
   $("cfgSymbol").value = s.config.symbol;
   $("cfgInterval").value = s.config.interval;
@@ -189,6 +249,12 @@ function fillSettings(s) {
   $("cfgPosition").value = (s.config.maxPositionPct * 100).toFixed(0);
   $("cfgLoss").value = (s.config.maxDailyLossPct * 100).toFixed(1);
   $("cfgConfidence").value = s.config.minSignalConfidence;
+  $("cfgPaperCapital").value = Number(s.config.paperStartingBalanceUsd || s.account.startingBalance || 10000).toFixed(0);
+  $("cfgUsdIdr").value = Number(s.config.usdIdrRate || 17850).toFixed(0);
+  $("cfgGoalMin").value = Number(s.config.dailyGoalMinUsd || 3);
+  $("cfgGoalMax").value = Number(s.config.dailyGoalMaxUsd || 5);
+  $("cfgPcTarget").value = Number(s.config.pcFundTargetIdr || 0).toFixed(0);
+  $("cfgPcSaved").value = Number(s.config.pcFundSavedIdr || 0).toFixed(0);
   $("cfgAi").checked = Boolean(s.config.aiValidation);
 }
 
@@ -258,6 +324,9 @@ function render(s) {
   renderScanner(s.scanner || {});
   renderRegime(s.signal || null);
   renderDecisions(s.decisionLog || []);
+  renderFinance(s);
+  renderPerformance(s);
+  renderSafety(s);
   fillSettings(s);
   renderNextRun();
 }
@@ -321,6 +390,12 @@ $("settingsForm").addEventListener("submit", async (e) => {
     maxPositionPct: Number($("cfgPosition").value) / 100,
     maxDailyLossPct: Number($("cfgLoss").value) / 100,
     minSignalConfidence: Number($("cfgConfidence").value),
+    paperStartingBalanceUsd: Number($("cfgPaperCapital").value),
+    usdIdrRate: Number($("cfgUsdIdr").value),
+    dailyGoalMinUsd: Number($("cfgGoalMin").value),
+    dailyGoalMaxUsd: Number($("cfgGoalMax").value),
+    pcFundTargetIdr: Number($("cfgPcTarget").value),
+    pcFundSavedIdr: Number($("cfgPcSaved").value),
     aiValidation: $("cfgAi").checked,
   };
   try {

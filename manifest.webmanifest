@@ -1,7 +1,7 @@
 {
   "name": "KAI TRAD",
   "short_name": "KAI TRAD",
-  "description": "AI trading robot dashboard with paper mode and market regime detector.",
+  "description": "AI trading robot dashboard with performance analytics, safety core, paper mode and market regime detector.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

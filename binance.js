@@ -84,7 +84,7 @@ export async function signedRequest({ baseUrl, apiKey, apiSecret, method = "GET"
   return data;
 }
 
-export async function placeMarketBuy({ baseUrl, apiKey, apiSecret, symbol, quoteOrderQty }) {
+export async function placeMarketBuy({ baseUrl, apiKey, apiSecret, symbol, quoteOrderQty, clientOrderId }) {
   return signedRequest({
     baseUrl,
     apiKey,
@@ -96,12 +96,13 @@ export async function placeMarketBuy({ baseUrl, apiKey, apiSecret, symbol, quote
       side: "BUY",
       type: "MARKET",
       quoteOrderQty: String(Number(quoteOrderQty).toFixed(2)),
+      ...(clientOrderId ? { newClientOrderId: clientOrderId } : {}),
       newOrderRespType: "FULL",
     },
   });
 }
 
-export async function placeMarketSell({ baseUrl, apiKey, apiSecret, symbol, quantity }) {
+export async function placeMarketSell({ baseUrl, apiKey, apiSecret, symbol, quantity, clientOrderId }) {
   return signedRequest({
     baseUrl,
     apiKey,
@@ -113,6 +114,7 @@ export async function placeMarketSell({ baseUrl, apiKey, apiSecret, symbol, quan
       side: "SELL",
       type: "MARKET",
       quantity: String(quantity),
+      ...(clientOrderId ? { newClientOrderId: clientOrderId } : {}),
       newOrderRespType: "FULL",
     },
   });
@@ -141,11 +143,24 @@ export async function fetchSymbolRules(baseUrl, symbol) {
   const item = data?.symbols?.[0];
   if (!item) throw new Error(`Unknown symbol ${symbol}`);
   const lot = item.filters?.find((f) => f.filterType === "LOT_SIZE");
+  const marketLot = item.filters?.find((f) => f.filterType === "MARKET_LOT_SIZE");
+  const minNotional = item.filters?.find((f) => f.filterType === "MIN_NOTIONAL");
+  const notional = item.filters?.find((f) => f.filterType === "NOTIONAL");
+  const minNotionalValue = Number(notional?.minNotional || minNotional?.minNotional || 0);
+  const maxNotionalValue = Number(notional?.maxNotional || 0);
   return {
+    status: item.status,
+    marketOrderAllowed: Array.isArray(item.orderTypes) ? item.orderTypes.includes("MARKET") : true,
+    quoteOrderQtyMarketAllowed: item.quoteOrderQtyMarketAllowed !== false,
     baseAsset: item.baseAsset,
     quoteAsset: item.quoteAsset,
-    stepSize: Number(lot?.stepSize || 0.00000001),
-    minQty: Number(lot?.minQty || 0),
+    stepSize: Number(marketLot?.stepSize || lot?.stepSize || 0.00000001),
+    minQty: Number(marketLot?.minQty || lot?.minQty || 0),
+    maxQty: Number(marketLot?.maxQty || lot?.maxQty || 0),
+    minNotional: minNotionalValue,
+    maxNotional: maxNotionalValue,
+    minNotionalAppliesToMarket: notional ? notional.applyMinToMarket !== false : minNotional?.applyToMarket !== false,
+    maxNotionalAppliesToMarket: notional ? notional.applyMaxToMarket !== false : false,
   };
 }
 

@@ -73,10 +73,53 @@
     </section>
 
     <section class="metrics-grid">
-      <article class="metric card"><span>EQUITY</span><strong id="equity">—</strong><small id="equityDelta">—</small></article>
-      <article class="metric card"><span>DAILY P&L</span><strong id="dailyPnl">—</strong><small id="dailyLimit">Risk guard —</small></article>
-      <article class="metric card"><span>REALIZED P&L</span><strong id="realizedPnl">—</strong><small id="winRate">Win rate —</small></article>
+      <article class="metric card"><span>EQUITY</span><strong id="equity">—</strong><small id="equityIdr" class="dual-money">—</small><small id="equityDelta">—</small></article>
+      <article class="metric card"><span>DAILY P&L</span><strong id="dailyPnl">—</strong><small id="dailyPnlIdr" class="dual-money">—</small><small id="dailyLimit">Risk guard —</small></article>
+      <article class="metric card"><span>REALIZED P&L</span><strong id="realizedPnl">—</strong><small id="realizedPnlIdr" class="dual-money">—</small><small id="winRate">Win rate —</small></article>
       <article class="metric card"><span>MAX DRAWDOWN</span><strong id="drawdown">—</strong><small>Since reset</small></article>
+    </section>
+
+    <section class="goal-grid">
+      <article class="card goal-card">
+        <div class="section-title"><div><span class="eyebrow">DAILY GOAL</span><h3>Small & Realistic</h3></div><span id="goalStatus" class="badge muted">TRACKING</span></div>
+        <div class="goal-amount"><strong id="dailyGoalUsd">$3–5</strong><span id="dailyGoalIdr">—</span></div>
+        <div class="progress"><i id="dailyGoalBar"></i></div>
+        <small id="dailyGoalProgress">Goal tracker only — robot tidak memaksa entry.</small>
+      </article>
+      <article class="card goal-card">
+        <div class="section-title"><div><span class="eyebrow">PC FUND</span><h3>Project Roblox Fund</h3></div><span id="pcFundStatus" class="badge muted">SET TARGET</span></div>
+        <div class="goal-amount"><strong id="pcFundSaved">Rp0</strong><span id="pcFundTarget">Target belum diatur</span></div>
+        <div class="progress"><i id="pcFundBar"></i></div>
+        <small id="pcFundProgress">Atur target & tabungan aktual di Settings.</small>
+      </article>
+    </section>
+
+    <section class="card performance-card">
+      <div class="section-title">
+        <div><span class="eyebrow">PERFORMANCE CORE</span><h3>Forward-Test Statistics</h3></div>
+        <span id="sampleStatus" class="badge muted">COLLECTING DATA</span>
+      </div>
+      <div class="performance-grid">
+        <div><span>CLOSED TRADES</span><strong id="perfClosed">0</strong></div>
+        <div><span>WIN RATE</span><strong id="perfWinRate">—</strong></div>
+        <div><span>PROFIT FACTOR</span><strong id="perfFactor">—</strong></div>
+        <div><span>EXPECTANCY</span><strong id="perfExpectancy">—</strong></div>
+        <div><span>AVG WIN / LOSS</span><strong id="perfAvg">—</strong></div>
+        <div><span>AVG HOLD</span><strong id="perfHold">—</strong></div>
+      </div>
+    </section>
+
+    <section class="card safety-card">
+      <div class="section-title">
+        <div><span class="eyebrow">SAFETY CORE v2</span><h3>Circuit Breaker & Execution Guard</h3></div>
+        <span id="safetyBadge" class="badge good">ARMED</span>
+      </div>
+      <div class="safety-grid">
+        <div><span>LOSS STREAK</span><strong id="lossStreak">0 / 3</strong></div>
+        <div><span>API ERRORS</span><strong id="apiErrors">0 / 3</strong></div>
+        <div><span>COOLDOWN</span><strong id="cooldownState">CLEAR</strong></div>
+        <div><span>LIVE EXECUTION</span><strong id="liveLock">LOCKED</strong></div>
+      </div>
     </section>
 
     <section class="card regime-card">
@@ -154,6 +197,12 @@
         <label>Max Position<input id="cfgPosition" type="number" min="5" max="50" step="5" /><span>%</span></label>
         <label>Daily Loss Limit<input id="cfgLoss" type="number" min="1" max="8" step="0.5" /><span>%</span></label>
         <label>Min Confidence<input id="cfgConfidence" type="number" min="60" max="90" step="1" /><span>%</span></label>
+        <label>Paper Capital<input id="cfgPaperCapital" type="number" min="10" max="1000000" step="10" /><span>USDT</span></label>
+        <label>USD / IDR Rate<input id="cfgUsdIdr" type="number" min="1000" max="100000" step="10" /></label>
+        <label>Daily Goal Min<input id="cfgGoalMin" type="number" min="0" max="10000" step="0.5" /><span>USD</span></label>
+        <label>Daily Goal Max<input id="cfgGoalMax" type="number" min="0" max="20000" step="0.5" /><span>USD</span></label>
+        <label>PC Fund Target<input id="cfgPcTarget" type="number" min="0" max="10000000000" step="50000" /><span>Rp</span></label>
+        <label>PC Fund Saved<input id="cfgPcSaved" type="number" min="0" max="10000000000" step="50000" /><span>Rp</span></label>
         <label class="switch-label">AI Entry Validator<input id="cfgAi" type="checkbox" /><span class="switch"></span></label>
         <div class="settings-actions">
           <button type="submit" class="btn primary">SAVE CONFIG</button>
@@ -173,7 +222,7 @@
     </section>
 
     <footer>
-      <span>KAI TRAD v1.6.4 • PWA Icon Deploy Fix</span>
+      <span>KAI TRAD v1.7 • Performance & Safety Core • Dual USD/IDR</span>
       <span>Signal bersifat probabilistik, bukan jaminan hasil.</span>
     </footer>
   </main>

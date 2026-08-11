@@ -5,12 +5,14 @@ import {
   analyzeMultiTimeframe,
   computeTradePlan,
   computeTradeQuality,
+  computePerformanceStats,
   detectMarketRegime,
   evaluateRiskExit,
   isRegimeEntryEligible,
   rankScanCandidates,
   safeConfig,
   updateTrailingStop,
+  validateExecutionRules,
 } from './engine.js';
 
 function candles(count = 120, slope = 1.2) {
@@ -108,4 +110,28 @@ test('bearish regime blocks long entry even if deterministic signal says BUY', (
   const bearish = { regime: 'BEARISH', longBiasScore: 15 };
   assert.equal(isRegimeEntryEligible({ ...analysis, action: 'BUY', buyConfidence: 90 }, bearish, 70), false);
   assert.ok(computeTradeQuality(analysis, bearish) >= 0 && computeTradeQuality(analysis, bearish) <= 100);
+});
+
+
+test('performance stats calculates win rate, profit factor and loss streak', () => {
+  const stats = computePerformanceStats([
+    { side: 'SELL', at: '2026-08-11T00:00:00Z', pnl: 5, fee: .2, holdingMinutes: 20 },
+    { side: 'SELL', at: '2026-08-11T01:00:00Z', pnl: -2, fee: .2, holdingMinutes: 30 },
+    { side: 'SELL', at: '2026-08-11T02:00:00Z', pnl: -1, fee: .2, holdingMinutes: 40 },
+  ]);
+  assert.equal(stats.closedTrades, 3);
+  assert.equal(stats.wins, 1);
+  assert.equal(stats.losses, 2);
+  assert.equal(stats.consecutiveLosses, 2);
+  assert.ok(stats.profitFactor > 1);
+  assert.equal(stats.avgHoldMinutes, 30);
+});
+
+test('execution guard enforces notional and quantity bounds', () => {
+  const blocked = validateExecutionRules({ notional: 4, quantity: .0001, price: 100, rules: { minNotional: 5, minQty: .001 } });
+  assert.equal(blocked.ok, false);
+  assert.ok(blocked.errors.includes('MIN_NOTIONAL'));
+  assert.ok(blocked.errors.includes('MIN_QTY'));
+  const ok = validateExecutionRules({ notional: 20, quantity: .01, price: 100, rules: { minNotional: 5, minQty: .001, maxQty: 10 } });
+  assert.equal(ok.ok, true);
 });

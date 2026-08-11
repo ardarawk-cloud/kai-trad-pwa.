@@ -329,6 +329,75 @@ export function safeConfig(input, current) {
   if (Number.isFinite(Number(input.maxPositionPct))) next.maxPositionPct = clamp(Number(input.maxPositionPct), 0.05, 0.5);
   if (Number.isFinite(Number(input.maxDailyLossPct))) next.maxDailyLossPct = clamp(Number(input.maxDailyLossPct), 0.01, 0.08);
   if (Number.isFinite(Number(input.minSignalConfidence))) next.minSignalConfidence = clamp(Math.round(Number(input.minSignalConfidence)), 60, 90);
+  if (Number.isFinite(Number(input.paperStartingBalanceUsd))) next.paperStartingBalanceUsd = clamp(Number(input.paperStartingBalanceUsd), 10, 1000000);
+  if (Number.isFinite(Number(input.usdIdrRate))) next.usdIdrRate = clamp(Number(input.usdIdrRate), 1000, 100000);
+  if (Number.isFinite(Number(input.dailyGoalMinUsd))) next.dailyGoalMinUsd = clamp(Number(input.dailyGoalMinUsd), 0, 10000);
+  if (Number.isFinite(Number(input.dailyGoalMaxUsd))) next.dailyGoalMaxUsd = clamp(Number(input.dailyGoalMaxUsd), next.dailyGoalMinUsd || 0, 20000);
+  if (Number.isFinite(Number(input.pcFundTargetIdr))) next.pcFundTargetIdr = clamp(Number(input.pcFundTargetIdr), 0, 10000000000);
+  if (Number.isFinite(Number(input.pcFundSavedIdr))) next.pcFundSavedIdr = clamp(Number(input.pcFundSavedIdr), 0, 10000000000);
+  if (Number.isFinite(Number(input.maxConsecutiveLosses))) next.maxConsecutiveLosses = clamp(Math.round(Number(input.maxConsecutiveLosses)), 2, 6);
+  if (Number.isFinite(Number(input.lossStreakCooldownMinutes))) next.lossStreakCooldownMinutes = clamp(Math.round(Number(input.lossStreakCooldownMinutes)), 30, 1440);
   if (typeof input.aiValidation === "boolean") next.aiValidation = input.aiValidation;
   return next;
+}
+
+
+export function computePerformanceStats(trades = []) {
+  const closed = (Array.isArray(trades) ? trades : [])
+    .filter((t) => t?.side === "SELL" && Number.isFinite(Number(t.pnl)))
+    .slice()
+    .sort((a, b) => Date.parse(a.at || 0) - Date.parse(b.at || 0));
+  const wins = closed.filter((t) => Number(t.pnl) >= 0);
+  const losses = closed.filter((t) => Number(t.pnl) < 0);
+  const grossProfit = wins.reduce((sum, t) => sum + Number(t.pnl), 0);
+  const grossLoss = Math.abs(losses.reduce((sum, t) => sum + Number(t.pnl), 0));
+  const totalPnl = closed.reduce((sum, t) => sum + Number(t.pnl), 0);
+  const feeEstimate = (Array.isArray(trades) ? trades : []).reduce((sum, t) => sum + Number(t?.fee || 0), 0);
+  const holding = closed.map((t) => Number(t.holdingMinutes)).filter(Number.isFinite);
+
+  let streak = 0;
+  let maxLossStreak = 0;
+  for (const trade of closed) {
+    if (Number(trade.pnl) < 0) {
+      streak += 1;
+      maxLossStreak = Math.max(maxLossStreak, streak);
+    } else {
+      streak = 0;
+    }
+  }
+
+  return {
+    closedTrades: closed.length,
+    wins: wins.length,
+    losses: losses.length,
+    winRatePct: closed.length ? round((wins.length / closed.length) * 100, 2) : 0,
+    grossProfit: round(grossProfit, 2),
+    grossLoss: round(grossLoss, 2),
+    netPnl: round(totalPnl, 2),
+    profitFactor: grossLoss > 0 ? round(grossProfit / grossLoss, 2) : (grossProfit > 0 ? null : 0),
+    expectancyUsd: closed.length ? round(totalPnl / closed.length, 2) : 0,
+    avgWinUsd: wins.length ? round(grossProfit / wins.length, 2) : 0,
+    avgLossUsd: losses.length ? round(-grossLoss / losses.length, 2) : 0,
+    avgHoldMinutes: holding.length ? round(holding.reduce((a, b) => a + b, 0) / holding.length, 1) : null,
+    consecutiveLosses: streak,
+    maxLossStreak,
+    estimatedFeesUsd: round(feeEstimate, 2),
+    sampleStatus: closed.length >= 100 ? "STRONG_SAMPLE" : closed.length >= 30 ? "BUILDING_CONFIDENCE" : "COLLECTING_DATA",
+  };
+}
+
+export function validateExecutionRules({ notional = 0, quantity = 0, price = 0, rules = {} }) {
+  const errors = [];
+  const minNotional = Number(rules.minNotional || 0);
+  const maxNotional = Number(rules.maxNotional || 0);
+  const minQty = Number(rules.minQty || 0);
+  const maxQty = Number(rules.maxQty || 0);
+  if (rules.status && rules.status !== "TRADING") errors.push("SYMBOL_NOT_TRADING");
+  if (rules.marketOrderAllowed === false) errors.push("MARKET_ORDER_DISABLED");
+  if (minNotional > 0 && rules.minNotionalAppliesToMarket !== false && Number(notional) < minNotional) errors.push("MIN_NOTIONAL");
+  if (maxNotional > 0 && rules.maxNotionalAppliesToMarket === true && Number(notional) > maxNotional) errors.push("MAX_NOTIONAL");
+  if (minQty > 0 && Number(quantity) > 0 && Number(quantity) < minQty) errors.push("MIN_QTY");
+  if (maxQty > 0 && Number(quantity) > maxQty) errors.push("MAX_QTY");
+  if (!Number.isFinite(Number(price)) || Number(price) <= 0) errors.push("INVALID_PRICE");
+  return { ok: errors.length === 0, errors };
 }
