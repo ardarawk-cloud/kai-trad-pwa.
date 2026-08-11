@@ -1,15 +1,15 @@
 {
-  "name": "KAI TRAD — AI Trading Robot",
+  "name": "KAI TRAD",
   "short_name": "KAI TRAD",
-  "description": "AI-assisted autonomous spot trading control center",
+  "description": "AI trading robot dashboard with paper mode and market regime detector.",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
-  "background_color": "#050505",
+  "background_color": "#090909",
   "theme_color": "#090909",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
   "icons": [
-    { "src": "/kai-trad-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/kai-trad-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "monochrome any" }
+    { "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/pwa-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/pwa-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "monochrome any" }
   ]
 }

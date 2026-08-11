@@ -1,3 +1,8 @@
+KAI TRAD v1.6.3
+- PWA icon fixed (not plain white anymore)
+- header logo remains transparent white
+- if old icon persists, remove old installed shortcut/PWA then reinstall after refresh
+
 KAI TRAD v1.6.2
 - transparent white wolf logo
 - larger header logo

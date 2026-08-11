@@ -1,3 +1,9 @@
+## v1.6.3
+- Fixed PWA icon visibility: PWA/app icon now uses a dark visible background with centered white wolf.
+- Header logo stays white and transparent.
+- Added 192px and 512px app icons for better install support.
+- Cache bumped so Cloudflare/PWA refreshes more reliably.
+
 ## v1.6.2
 - Wolf logo changed to pure white with transparent background.
 - Header logo enlarged to better match KAI TRAD wordmark.
