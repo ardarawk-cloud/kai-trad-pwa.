@@ -1,3 +1,8 @@
+KAI TRAD v1.6.4 — PWA ICON DEPLOY FIX
+- Fixes Android Add-to-Home-Screen placeholder W.
+- PWA icons are now included in Cloudflare dist.
+- After deployment: refresh, remove old shortcut/PWA if any, then Add to Home Screen again.
+
 KAI TRAD v1.6.3
 - PWA icon fixed (not plain white anymore)
 - header logo remains transparent white

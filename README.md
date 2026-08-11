@@ -1,3 +1,10 @@
+## v1.6.4
+- FIX: pwa-icon-192.png and pwa-icon-512.png are now copied into Cloudflare dist output.
+- Manifest hardened with id + scope.
+- PWA cache version bumped.
+- Header white-wolf logo remains unchanged.
+- Trading engine logic unchanged from validated v1.6.x.
+
 ## v1.6.3
 - Fixed PWA icon visibility: PWA/app icon now uses a dark visible background with centered white wolf.
 - Header logo stays white and transparent.
