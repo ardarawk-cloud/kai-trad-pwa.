@@ -96,8 +96,8 @@ function renderChart(points = []) {
     const cx = pad + slot * i + slot / 2;
     const yo = y(c.o), yh = y(c.h), yl = y(c.l), yc = y(c.c);
     const up = c.c >= c.o;
-    const wickColor = up ? "rgba(245,245,245,.9)" : "rgba(148,148,148,.95)";
-    const bodyColor = up ? "#f2f2f2" : "#707070";
+    const wickColor = up ? "rgba(112,255,183,.95)" : "rgba(255,107,126,.95)";
+    const bodyColor = up ? "#70ffb7" : "#ff6b7e";
     ctx.strokeStyle = wickColor;
     ctx.lineWidth = 1.25;
     ctx.beginPath();

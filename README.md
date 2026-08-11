@@ -1,6 +1,11 @@
-# KAI TRAD PWA v1.5.1 — Monochrome UI + Color Indicators
+# KAI TRAD PWA v1.5.2 — Monochrome UI + Color Candles
 
 Phone-flat Cloudflare Workers build.
+
+## v1.5.2
+- Candlestick colors restored: green bullish candle, red bearish candle.
+- UI remains monochrome.
+- Signal/status colors remain enabled for readability.
 
 ## v1.5.1
 - Monochrome UI retained.

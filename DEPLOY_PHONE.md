@@ -1,4 +1,4 @@
-# KAI TRAD v1.5.1 — PHONE DEPLOY
+# KAI TRAD v1.5.2 — PHONE DEPLOY
 
 GITHUB — PRODUCTION
 1. Extract ZIP.
@@ -17,3 +17,4 @@ PWA — PRODUCTION
 - After deploy, refresh PWA.
 - Main chart should display monochrome candlesticks.
 - Status colors should be visible again while overall UI stays monochrome.
+- Candle: bullish green, bearish red.
