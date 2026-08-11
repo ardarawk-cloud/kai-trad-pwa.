@@ -4,7 +4,10 @@ import {
   analyzeFrame,
   analyzeMultiTimeframe,
   computeTradePlan,
+  computeTradeQuality,
+  detectMarketRegime,
   evaluateRiskExit,
+  isRegimeEntryEligible,
   rankScanCandidates,
   safeConfig,
   updateTrailingStop,
@@ -85,4 +88,24 @@ test('multi-coin ranking prioritizes qualified BUY then strongest buy confidence
   assert.equal(ranked[0].symbol, 'SOLUSDT');
   assert.equal(ranked[1].symbol, 'ETHUSDT');
   assert.equal(ranked[2].symbol, 'BTCUSDT');
+});
+
+
+test('regime detector identifies a strong bullish trend', () => {
+  const regime = detectMarketRegime(candles(140, 1.1));
+  assert.equal(regime.regime, 'BULLISH');
+  assert.ok(regime.trendStrength >= 60);
+});
+
+test('regime detector identifies a strong bearish trend', () => {
+  const regime = detectMarketRegime(candles(140, -0.3));
+  assert.equal(regime.regime, 'BEARISH');
+  assert.ok(regime.trendStrength >= 60);
+});
+
+test('bearish regime blocks long entry even if deterministic signal says BUY', () => {
+  const analysis = analyzeMultiTimeframe(candles(140, 1.1), candles(140, 0.8), 60);
+  const bearish = { regime: 'BEARISH', longBiasScore: 15 };
+  assert.equal(isRegimeEntryEligible({ ...analysis, action: 'BUY', buyConfidence: 90 }, bearish, 70), false);
+  assert.ok(computeTradeQuality(analysis, bearish) >= 0 && computeTradeQuality(analysis, bearish) <= 100);
 });

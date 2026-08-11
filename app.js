@@ -144,9 +144,40 @@ function renderScanner(scanner = {}) {
   list.innerHTML = rows.map((x) => `
     <div class="scanner-row ${x.rank === 1 ? "top" : ""}">
       <div class="scanner-rank">#${x.rank}</div>
-      <div><strong>${x.symbol}</strong><small>${priceFmt(x.price)}</small></div>
+      <div><strong>${x.symbol}</strong><small>${priceFmt(x.price)}</small><small class="regime-mini ${(x.regime || "SIDEWAYS").toLowerCase()}">${x.regime || "SIDEWAYS"} • Q${x.tradeQuality ?? "—"}</small></div>
       <div><span>BUY</span><strong class="${x.buyConfidence >= 70 ? "positive" : ""}">${x.buyConfidence}%</strong></div>
       <div><span>SIGNAL</span><strong class="signal ${(x.action || "HOLD").toLowerCase()}">${x.action || "HOLD"}</strong></div>
+    </div>`).join("");
+}
+
+
+function renderRegime(signal = null) {
+  const regime = signal?.regime || null;
+  const label = regime?.regime || "WAITING";
+  const cls = label === "BULLISH" ? "regime-bullish" : label === "BEARISH" ? "regime-bearish" : label === "SIDEWAYS" ? "regime-sideways" : "";
+  $("regimeLabel").textContent = label;
+  $("regimeLabel").className = cls;
+  $("regimeStrength").textContent = regime ? `${regime.trendStrength}%` : "—";
+  $("qualityScore").textContent = signal ? `${signal.tradeQuality ?? "—"}%` : "—";
+  $("entryGate").textContent = signal ? (signal.entryEligible ? "OPEN" : "WAIT") : "—";
+  $("entryGate").className = signal ? (signal.entryEligible ? "gate-open" : "gate-closed") : "";
+  $("regimeBadge").textContent = label;
+  $("regimeBadge").className = `badge ${label === "BULLISH" ? "good" : label === "BEARISH" ? "live" : "muted"}`;
+}
+
+function renderDecisions(decisions = []) {
+  $("decisionCount").textContent = `${decisions.length} decisions`;
+  const list = $("decisionList");
+  if (!decisions.length) {
+    list.innerHTML = '<div class="empty">Menunggu keputusan pertama.</div>';
+    return;
+  }
+  list.innerHTML = decisions.slice(0, 10).map((d) => `
+    <div class="decision-row">
+      <div><strong class="signal ${(d.action || "HOLD").toLowerCase()}">${d.action || "HOLD"}</strong><small>${timeWita(d.at)}</small></div>
+      <div><strong>${d.symbol}</strong><small>${d.regime || "—"} • Q${d.tradeQuality ?? "—"}</small></div>
+      <div class="decision-reason">${String(d.reason || "—").replaceAll("_", " ")}<small>BUY ${d.buyConfidence ?? "—"}% • confidence ${d.confidence ?? "—"}%</small></div>
+      <div><strong class="${d.entryEligible ? "positive" : "negative"}">${d.entryEligible ? "ELIGIBLE" : "WAIT"}</strong><small>Entry gate</small></div>
     </div>`).join("");
 }
 
@@ -225,6 +256,8 @@ function render(s) {
   renderChart(s.market?.chart || []);
   renderTrades(s.trades || []);
   renderScanner(s.scanner || {});
+  renderRegime(s.signal || null);
+  renderDecisions(s.decisionLog || []);
   fillSettings(s);
   renderNextRun();
 }

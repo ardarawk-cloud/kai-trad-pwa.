@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>KAI TRAD — AI Trading Robot</title>
   <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/kai-trad-logo.png" type="image/png" />
   <link rel="stylesheet" href="/app.css" />
 </head>
 <body>
@@ -17,7 +17,7 @@
   <main class="shell">
     <header class="topbar">
       <div class="brand">
-        <div class="logo">KT</div>
+        <img class="logo" src="/kai-trad-logo.png" alt="KAI TRAD wolf logo" />
         <div>
           <h1>KAI TRAD</h1>
           <p>AI AUTONOMOUS TRADING SYSTEM</p>
@@ -78,6 +78,19 @@
       <article class="metric card"><span>MAX DRAWDOWN</span><strong id="drawdown">—</strong><small>Since reset</small></article>
     </section>
 
+    <section class="card regime-card">
+      <div class="section-title">
+        <div><span class="eyebrow">MARKET REGIME</span><h3>Adaptive Market Filter</h3></div>
+        <span id="regimeBadge" class="badge muted">WAITING</span>
+      </div>
+      <div class="regime-grid">
+        <div><span>REGIME</span><strong id="regimeLabel">—</strong></div>
+        <div><span>TREND STRENGTH</span><strong id="regimeStrength">—</strong></div>
+        <div><span>TRADE QUALITY</span><strong id="qualityScore">—</strong></div>
+        <div><span>ENTRY GATE</span><strong id="entryGate">—</strong></div>
+      </div>
+    </section>
+
     <section class="card scanner-card">
       <div class="section-title">
         <div><span class="eyebrow">MULTI-COIN AUTO SCANNER</span><h3>Best Setup Ranking</h3></div>
@@ -92,9 +105,9 @@
         <span id="nextRun" class="small-status">Idle</span>
       </div>
       <div class="control-grid">
-        <button id="startBtn" class="btn primary big">▶ START ROBOT</button>
-        <button id="stopBtn" class="btn danger big">■ STOP</button>
-        <button id="runBtn" class="btn ghost big">◎ SCAN NOW</button>
+        <button id="startBtn" class="btn start-control big">▶ START ROBOT</button>
+        <button id="stopBtn" class="btn stop-control big">■ STOP</button>
+        <button id="runBtn" class="btn scan-control big">◎ SCAN NOW</button>
       </div>
       <div id="engineError" class="error-line hidden"></div>
     </section>
@@ -148,13 +161,18 @@
       </form>
     </section>
 
+    <section class="card decision-card">
+      <div class="section-title"><div><span class="eyebrow">DECISION LOG</span><h3>Why Robot Waits / Trades</h3></div><span id="decisionCount" class="small-status">0 decisions</span></div>
+      <div id="decisionList" class="decision-list"><div class="empty">Menunggu keputusan pertama.</div></div>
+    </section>
+
     <section class="card">
       <div class="section-title"><div><span class="eyebrow">EXECUTION LOG</span><h3>Recent Trades</h3></div><span id="tradeCount" class="small-status">0 trades</span></div>
       <div id="tradeList" class="trade-list"><div class="empty">Belum ada transaksi.</div></div>
     </section>
 
     <footer>
-      <span>KAI TRAD v1.5.2 • Mono UI • Color Candles</span>
+      <span>KAI TRAD v1.6.1 • Wolf Identity • Regime AI</span>
       <span>Signal bersifat probabilistik, bukan jaminan hasil.</span>
     </footer>
   </main>

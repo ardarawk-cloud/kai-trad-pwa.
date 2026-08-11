@@ -1,20 +1,21 @@
-# KAI TRAD v1.5.2 — PHONE DEPLOY
+# KAI TRAD v1.6.1 — PHONE DEPLOY
 
 GITHUB — PRODUCTION
 1. Extract ZIP.
-2. Upload/replace all files in repository root.
+2. Upload/replace all 15 files in repository root.
 3. Commit to `main`.
 
 CLOUDFLARE — PRODUCTION
-- No manual change required.
-- Wait for Git auto-deploy to become Active.
+- No manual setting change.
+- Wait until latest deployment is Active.
 
 PWA — PRODUCTION
 - Refresh.
-- MULTI-COIN AUTO SCANNER should show 5 ranked markets after a scan.
-- Start Robot to run automatically.
+- Confirm Market Regime card + Decision Log.
+- START green, STOP red, SCAN NOW blue.
+- Keep PAPER mode for validation.
 
-- After deploy, refresh PWA.
-- Main chart should display monochrome candlesticks.
-- Status colors should be visible again while overall UI stays monochrome.
-- Candle: bullish green, bearish red.
+PWA CHECK
+- Header logo = geometric wolf.
+- Installed app icon = wolf logo.
+- START = green, STOP = red, SCAN NOW = blue.

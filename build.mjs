@@ -6,6 +6,7 @@ const staticFiles = [
   "app.css",
   "sw.js",
   "icon.svg",
+  "kai-trad-logo.png",
   "manifest.webmanifest",
 ];
 

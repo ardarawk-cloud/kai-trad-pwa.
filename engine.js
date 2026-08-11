@@ -195,6 +195,71 @@ export function analyzeMultiTimeframe(mainCandles, fastCandles, minConfidence = 
   };
 }
 
+
+export function detectMarketRegime(candles) {
+  if (!Array.isArray(candles) || candles.length < 70) throw new Error("At least 70 candles are required for regime detection");
+  const closes = candles.map((c) => c.close);
+  const price = closes.at(-1);
+  const e12 = ema(closes, 12);
+  const e26 = ema(closes, 26);
+  const e50Series = emaSeries(closes, 50);
+  const e50 = e50Series.at(-1);
+  const e50Prev = e50Series.at(-9) ?? e50Series.find((v) => v != null) ?? e50;
+  const slopePct = e50Prev ? ((e50 - e50Prev) / e50Prev) * 100 : 0;
+  const r = rsi(closes, 14);
+  const m = macd(closes);
+  const a = atr(candles, 14);
+  const atrPct = a && price ? (a / price) * 100 : 0;
+
+  let bull = 0;
+  let bear = 0;
+  if (e12 > e26) bull++; else bear++;
+  if (price > e50) bull++; else bear++;
+  if (slopePct > 0.05) bull++; else if (slopePct < -0.05) bear++;
+  if (r >= 52) bull++; else if (r <= 48) bear++;
+  if ((m?.histogram || 0) > 0) bull++; else if ((m?.histogram || 0) < 0) bear++;
+
+  let regime = "SIDEWAYS";
+  if (bull >= 4 && bull - bear >= 2) regime = "BULLISH";
+  else if (bear >= 4 && bear - bull >= 2) regime = "BEARISH";
+
+  const trendStrength = clamp(Math.round((Math.abs(bull - bear) / 5) * 100), 0, 100);
+  const longBiasScore = regime === "BULLISH" ? 90 : regime === "SIDEWAYS" ? 55 : 15;
+  return {
+    regime,
+    trendStrength,
+    longBiasScore,
+    ema50SlopePct: round(slopePct, 3),
+    atrPct: round(atrPct, 3),
+    rsi: round(r, 2),
+    bullVotes: bull,
+    bearVotes: bear,
+  };
+}
+
+export function computeTradeQuality(analysis, regime) {
+  const atrPct = Number(analysis?.main?.indicators?.atrPct || 0);
+  const volumeRatio = Number(analysis?.main?.indicators?.volumeRatio || 0);
+  const volatilityScore = atrPct >= 0.2 && atrPct <= 3 ? 100 : atrPct <= 5 ? 65 : 25;
+  const volumeScore = volumeRatio >= 1.05 ? 100 : volumeRatio >= 0.8 ? 70 : 45;
+  const timeframeScore = analysis?.main?.buyScore >= 60 && analysis?.fast?.buyScore >= 55 ? 100 : 55;
+  return clamp(Math.round(
+    Number(analysis?.buyConfidence || 0) * 0.55 +
+    Number(regime?.longBiasScore || 0) * 0.20 +
+    volatilityScore * 0.10 +
+    volumeScore * 0.10 +
+    timeframeScore * 0.05
+  ), 0, 100);
+}
+
+export function isRegimeEntryEligible(analysis, regime, minConfidence = 70) {
+  if (!analysis || analysis.action !== "BUY") return false;
+  const quality = computeTradeQuality(analysis, regime);
+  if (regime?.regime === "BEARISH") return false;
+  if (regime?.regime === "SIDEWAYS") return analysis.buyConfidence >= Math.min(95, minConfidence + 5) && quality >= 70;
+  return analysis.buyConfidence >= minConfidence && quality >= 65;
+}
+
 export function computeTradePlan({ equity, cash, price, atrPct, riskPerTrade, maxPositionPct, stopLossPct: requestedStopLossPct = 0.10, takeProfitPct: requestedTakeProfitPct = 0.30 }) {
   // KAI TRAD locked auto-exit policy: hard SL 10%, hard TP 30%.
   // Trailing follows the same 10% distance and may protect profit earlier after price advances.
@@ -241,10 +306,14 @@ export function rankScanCandidates(candidates = []) {
   return candidates
     .filter((x) => x && x.symbol && x.analysis && Number.isFinite(Number(x.analysis.buyConfidence)))
     .sort((a, b) => {
+      const eligibleBoostA = a.entryEligible ? 2000 : 0;
+      const eligibleBoostB = b.entryEligible ? 2000 : 0;
       const actionBoostA = a.analysis.action === "BUY" ? 1000 : 0;
       const actionBoostB = b.analysis.action === "BUY" ? 1000 : 0;
-      const byBuy = (actionBoostB + b.analysis.buyConfidence) - (actionBoostA + a.analysis.buyConfidence);
-      if (byBuy !== 0) return byBuy;
+      const qualityA = Number(a.tradeQuality ?? a.analysis.buyConfidence ?? 0);
+      const qualityB = Number(b.tradeQuality ?? b.analysis.buyConfidence ?? 0);
+      const byQuality = (eligibleBoostB + actionBoostB + qualityB) - (eligibleBoostA + actionBoostA + qualityA);
+      if (byQuality !== 0) return byQuality;
       return Number(b.analysis.confidence || 0) - Number(a.analysis.confidence || 0);
     });
 }

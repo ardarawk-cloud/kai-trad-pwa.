@@ -1,6 +1,9 @@
 import {
   analyzeMultiTimeframe,
   computeTradePlan,
+  computeTradeQuality,
+  detectMarketRegime,
+  isRegimeEntryEligible,
   evaluateRiskExit,
   rankScanCandidates,
   safeConfig,
@@ -31,7 +34,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function defaults(env) {
   const starting = Number(env.STARTING_BALANCE || 10000);
   return {
-    version: "1.4.0",
+    version: "1.6.0",
     mode: env.TRADING_MODE === "live" ? "live" : "paper",
     createdAt: nowIso(),
     config: {
@@ -80,6 +83,7 @@ function defaults(env) {
     scanner: { updatedAt: null, symbols: [], bestSymbol: env.SYMBOL || "BTCUSDT", errors: [] },
     trades: [],
     signals: [],
+    decisionLog: [],
   };
 }
 
@@ -189,8 +193,9 @@ export class TradingState {
     s.engine.lastDecisionCandles ||= {};
     s.scanner ||= { updatedAt: null, symbols: [], bestSymbol: s.config.symbol, errors: [] };
     s.market ||= { symbol: s.config.symbol, price: null, updatedAt: null, chart: [] };
+    s.decisionLog ||= [];
     s.market.symbol ||= s.position?.symbol || s.signal?.symbol || s.config.symbol;
-    s.version = "1.4.0";
+    s.version = "1.6.0";
     return s;
   }
 
@@ -324,12 +329,18 @@ export class TradingState {
       fetchTickerPrice(baseUrl, symbol),
     ]);
     const analysis = analyzeMultiTimeframe(mainCandles, fastCandles, s.config.minSignalConfidence);
+    const regime = detectMarketRegime(mainCandles);
+    const tradeQuality = computeTradeQuality(analysis, regime);
+    const entryEligible = isRegimeEntryEligible(analysis, regime, s.config.minSignalConfidence);
     return {
       symbol,
       marketPrice,
       mainCandles,
       fastCandles,
       analysis,
+      regime,
+      tradeQuality,
+      entryEligible,
       decisionCandle: mainCandles.at(-1).closeTime,
     };
   }
@@ -359,7 +370,7 @@ export class TradingState {
       selected = ranked[0];
     }
 
-    const { symbol, mainCandles, marketPrice, analysis, decisionCandle } = selected;
+    const { symbol, mainCandles, marketPrice, analysis, regime, tradeQuality, entryEligible, decisionCandle } = selected;
     s.market = {
       symbol,
       price: marketPrice,
@@ -389,6 +400,10 @@ export class TradingState {
         price: x.marketPrice,
         rsi: x.analysis.main.indicators.rsi,
         atrPct: x.analysis.main.indicators.atrPct,
+        regime: x.regime?.regime || "SIDEWAYS",
+        trendStrength: x.regime?.trendStrength ?? 0,
+        tradeQuality: x.tradeQuality ?? 0,
+        entryEligible: Boolean(x.entryEligible),
         decisionCandle: x.decisionCandle,
       })),
     };
@@ -428,7 +443,9 @@ export class TradingState {
       decided = "SELL";
       reason = "MULTI_TIMEFRAME_EXIT";
     } else if (!s.position && analysis.action === "BUY") {
-      if (blocked) {
+      if (!entryEligible) {
+        reason = `REGIME_FILTER_${regime?.regime || "UNKNOWN"}`;
+      } else if (blocked) {
         reason = "DAILY_LOSS_CIRCUIT_BREAKER";
       } else if (s.engine.cooldownUntil && Date.now() < Date.parse(s.engine.cooldownUntil)) {
         reason = "COOLDOWN";
@@ -436,7 +453,7 @@ export class TradingState {
         ai = await aiValidateEntry(this.env, s, analysis, symbol);
         if (ai.approved) {
           decided = "BUY";
-          reason = "BEST_OF_5_ENSEMBLE_CONFIRMED";
+          reason = "BEST_OF_5_REGIME_AI_CONFIRMED";
         } else {
           reason = "BEST_OF_5_AI_VETO";
         }
@@ -465,9 +482,25 @@ export class TradingState {
       ai,
       indicators: analysis.main.indicators,
       scannerRank: s.scanner.symbols.find((x) => x.symbol === symbol)?.rank || 1,
+      regime,
+      tradeQuality,
+      entryEligible,
     };
     s.signal = signal;
     pushLimited(s.signals, signal, 100);
+    pushLimited(s.decisionLog, {
+      id: crypto.randomUUID(),
+      at: signal.at,
+      symbol,
+      action: decided,
+      deterministicAction: analysis.action,
+      confidence: analysis.confidence,
+      buyConfidence: analysis.buyConfidence,
+      tradeQuality,
+      regime: regime?.regime || "SIDEWAYS",
+      entryEligible,
+      reason,
+    }, 120);
 
     if (decided === "BUY") s = await this.executeBuy(s, analysis, marketPrice, symbol);
     if (decided === "SELL" && s.position) s = await this.executeSell(s, marketPrice, reason);
@@ -551,7 +584,7 @@ export class TradingState {
       notional: round(notional, 2),
       pnl: null,
       mode: s.mode,
-      reason: "BEST_OF_5_ENSEMBLE_CONFIRMED",
+      reason: "BEST_OF_5_REGIME_AI_CONFIRMED",
       orderId,
     });
 
@@ -637,7 +670,7 @@ export default {
       return json({
         ok: true,
         service: "KAI TRAD",
-        version: "1.4.0",
+        version: "1.6.0",
         mode: env.TRADING_MODE === "live" ? "live" : "paper",
         adminConfigured: Boolean(env.ADMIN_TOKEN),
         liveExecutionEnabled: env.ENABLE_LIVE_EXECUTION === "YES_I_ACCEPT_RISK",

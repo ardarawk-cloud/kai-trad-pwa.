@@ -1,35 +1,27 @@
-# KAI TRAD PWA v1.5.2 — Monochrome UI + Color Candles
+# KAI TRAD PWA v1.6.1 — Wolf Identity + Market Regime
 
 Phone-flat Cloudflare Workers build.
 
-## v1.5.2
-- Candlestick colors restored: green bullish candle, red bearish candle.
-- UI remains monochrome.
-- Signal/status colors remain enabled for readability.
+## v1.6.1
+- New original geometric wolf-head KAI TRAD identity.
+- Wolf logo used in header, favicon, and PWA install icon.
+- Functional control colors restored: START green, STOP red, SCAN NOW blue.
+- v1.6 regime detector, quality score, decision log, candle UI, and multi-coin engine remain active.
 
-## v1.5.1
-- Monochrome UI retained.
-- Status and indicator colors restored for easier differentiation (BUY green, SELL red, HOLD amber, ONLINE/RUNNING green).
-- Candlestick chart remains monochrome.
-
-## v1.5
-- Main chart upgraded from line chart to candlestick chart.
-- Visual theme changed to monochrome (black / white / gray).
-- Multi-coin scanner from v1.4 remains active.
-
-## v1.4
-- Auto-scan 5 Spot markets: BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, XRPUSDT.
-- Rank setup quality every engine cycle.
-- Only one open position at a time.
-- Entry candidate = highest-ranked qualified BUY setup.
-- AI validates only the selected best candidate.
-- When a position is open, risk monitoring stays locked to that position's symbol.
+## v1.6
+- Market Regime Detector: BULLISH / BEARISH / SIDEWAYS.
+- Regime-aware entry gate for conservative Spot long/flat execution.
+- Trade Quality Score for every ranked market.
+- Decision Log records why the robot trades or waits.
+- Functional robot buttons restored: START green, STOP red, SCAN NOW blue.
+- Monochrome dashboard retained.
+- Candles remain green/red.
+- Multi-coin scanner: BTC, ETH, BNB, SOL, XRP.
 - Hard Stop Loss 10% and Take Profit 30% remain locked.
 - Paper mode remains default; live execution remains locked.
-- Public market-data fallback from v1.3 remains active.
 
 ## Phone deploy
-Upload/replace all root files in the GitHub `kai-trad-pwa` repo, then commit to `main`. Cloudflare Git integration auto-builds and deploys.
+Upload/replace all root files in GitHub `kai-trad-pwa`, commit to `main`, then wait for Cloudflare Git auto-deploy.
 
 ## Test
 `npm test`
