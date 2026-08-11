@@ -22,9 +22,9 @@ async function brokerState() {
 
 function applyReleaseLabel() {
   const eyebrow = document.querySelector(".broker-card .eyebrow");
-  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.9.0";
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.9.1";
   const footer = document.querySelector("footer span");
-  if (footer) footer.textContent = "KAI TRAD v1.9.0 • Indodax Primary Public Route • PAPER Only";
+  if (footer) footer.textContent = "KAI TRAD v1.9.1 • Indodax Native Market Data • PAPER Only";
 }
 
 function applyIndodaxPrimary(s) {
@@ -59,17 +59,17 @@ function applyIndodaxPrimary(s) {
     keys.className = "";
   }
   if (badge) {
-    badge.textContent = pairReady ? "INDODAX READY" : indoOnline ? "API ONLINE • CHECK PAIR" : "LIVE LOCKED";
+    badge.textContent = pairReady ? "INDODAX DATA READY" : indoOnline ? "API ONLINE • CHECK PAIR" : "LIVE LOCKED";
     badge.className = `badge ${pairReady ? "paper" : "muted"}`;
   }
   if (meta) {
     if (indo.checkedAt) {
       const supported = indo.symbolSupported === false ? " • pair belum tersedia di Indodax" : "";
       meta.textContent = indoOnline
-        ? `Indodax public API ONLINE${supported} • PAPER only.`
+        ? `Indodax public API + native market data ONLINE${supported} • PAPER only.`
         : `${indo.error || "Indodax public preflight gagal"} • PAPER only.`;
     } else {
-      meta.textContent = "Public preflight only • tidak mengirim order.";
+      meta.textContent = "Indodax public preflight + native market data • tidak mengirim order.";
     }
   }
 }
@@ -98,7 +98,7 @@ function installIndodaxCheck() {
       await refreshBroker();
       const s = await brokerState();
       const indo = s?.broker?.indodaxCheck || {};
-      if (indo.reachable && indo.symbolSupported !== false) brokerToast("Indodax public API + pair ONLINE");
+      if (indo.reachable && indo.symbolSupported !== false) brokerToast("Indodax API + pair ONLINE");
       else if (indo.reachable) brokerToast("Indodax API ONLINE • pair perlu dicek");
       else brokerToast(`Indodax check: HTTP ${res.status}`);
     } catch (e) {
