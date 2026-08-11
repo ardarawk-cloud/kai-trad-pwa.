@@ -199,23 +199,47 @@ export async function waitForTokocryptoFill({ baseUrl, apiKey, apiSecret, order,
   throw new Error(`Tokocrypto order not filled (status ${fill.status})`);
 }
 
-export async function tokocryptoPublicPreflight({ baseUrl = "https://www.tokocrypto.com", symbol = "BTCUSDT" } = {}) {
+export function parseTokocryptoDepthProbe(payload) {
+  const body = payload?.data && typeof payload.data === "object" ? payload.data : payload;
+  const bids = Array.isArray(body?.bids) ? body.bids : [];
+  const asks = Array.isArray(body?.asks) ? body.asks : [];
+  const bestBid = Number(bids?.[0]?.[0]);
+  const bestAsk = Number(asks?.[0]?.[0]);
+  if (!bids.length || !asks.length || !Number.isFinite(bestBid) || !Number.isFinite(bestAsk)) {
+    throw new Error("Tokocrypto public market response invalid");
+  }
+  return { bestBid, bestAsk, spread: Math.max(0, bestAsk - bestBid) };
+}
+
+export async function tokocryptoPublicPreflight({ publicBaseUrl = "https://www.tokocrypto.site", symbol = "BTCUSDT" } = {}) {
   const started = Date.now();
-  const [serverTime, rules] = await Promise.all([
-    fetchTokocryptoServerTime(baseUrl),
-    fetchTokocryptoSymbolRules({ baseUrl, symbol }),
-  ]);
+  const marketSymbol = toMarketSymbol(symbol);
+  const brokerSymbol = toTokocryptoSymbol(symbol);
+  const quoteAsset = brokerSymbol.includes("_") ? brokerSymbol.split("_").at(-1) : null;
+
+  // v1.8.1: use Tokocrypto's documented market-data host for public connectivity.
+  // The www.tokocrypto.com REST host may return HTTP 403 when its WAF blocks a cloud egress IP.
+  const depthUrl = new URL("/api/v3/depth", publicBaseUrl);
+  depthUrl.search = new URLSearchParams({ symbol: marketSymbol, limit: "5" }).toString();
+  const depth = await jsonFetch(depthUrl, { headers: { "User-Agent": "KAI-TRAD/1.8.1" } });
+  const probe = parseTokocryptoDepthProbe(depth);
+
   return {
     broker: "tokocrypto",
     reachable: true,
-    serverTime,
+    publicMarketReachable: true,
+    tradeRestReachable: null,
+    tradeRestStatus: "LOCKED_UNTESTED",
+    endpointType: "PUBLIC_MARKET_DATA",
+    endpointHost: new URL(publicBaseUrl).host,
     latencyMs: Date.now() - started,
-    symbol: rules.symbol,
-    marketOrderAllowed: rules.marketOrderAllowed,
-    spotTrading: rules.status === "TRADING",
-    quoteAsset: rules.quoteAsset,
-    minNotional: rules.minNotional,
-    stepSize: rules.stepSize,
-    defaultSelfTradePreventionMode: rules.defaultSelfTradePreventionMode,
+    symbol: marketSymbol,
+    brokerSymbol,
+    quoteAsset,
+    bestBid: probe.bestBid,
+    bestAsk: probe.bestAsk,
+    spread: probe.spread,
+    minNotional: null,
+    stepSize: null,
   };
 }

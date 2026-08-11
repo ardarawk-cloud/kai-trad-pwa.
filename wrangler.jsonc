@@ -40,6 +40,7 @@
     "MIN_SIGNAL_CONFIDENCE": "70",
     "PRIMARY_BROKER": "tokocrypto",
     "TOKOCRYPTO_API_BASE_URL": "https://www.tokocrypto.com",
+    "TOKOCRYPTO_PUBLIC_BASE_URL": "https://www.tokocrypto.site",
     "BROKER_LIVE_STAGE": "LOCKED",
     "TOKOCRYPTO_LIVE_ACK": "NOT_ACKNOWLEDGED",
     "USD_IDR_RATE": "17850",
