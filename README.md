@@ -1,31 +1,31 @@
-# KAI TRAD v1.9.1 — Indodax Native Market Data PAPER
+# KAI TRAD v1.9.2 — Indodax PAPER QC Hardening
 
-KAI TRAD tetap **PAPER-first**. v1.9.1 memindahkan sumber market-data publik untuk scanner, signal engine, dan chart dari Binance ke **Indodax** tanpa membuka live trading otomatis.
+KAI TRAD tetap **PAPER-first**. v1.9.2 mempertahankan Indodax Native Market Data dari v1.9.1 dan menambahkan quality-control guard berdasarkan hasil forward-test production.
 
-## v1.9.1
+## v1.9.2
 - Primary public broker route: **Indodax**.
 - PAPER market-data source: **Indodax Public REST API**.
-- OHLC history memakai endpoint resmi `/tradingview/history_v2`.
-- Ticker memakai endpoint resmi `/api/ticker/{pair_id}`.
-- Pair selalu diverifikasi dari `/api/pairs`; pair yang tidak tersedia akan dilewati scanner, bukan ditebak atau diganti ke quote currency lain.
-- Main timeframe 15m/30m/1h memakai timeframe resmi Indodax secara langsung.
-- Fast timeframe 5m dibentuk lokal dari lima candle 1m resmi Indodax karena public OHLC REST resmi tidak mendokumentasikan tf=5.
+- OHLC history tetap memakai `/tradingview/history_v2` dan ticker memakai `/api/ticker/{pair_id}`.
+- Fast timeframe 5m tetap dibentuk lokal dari lima candle 1m.
+- **Liquidity Data Guard:** entry BUY hanya eligible bila main TF dan fast TF masing-masing memiliki sedikitnya 60% candle dengan volume positif pada 20 candle terakhir. Candle volume 0 sesekali tetap ditoleransi.
+- **Decision Log Dedup:** `WAIT_NEXT_CLOSED_CANDLE` pada candle yang sama tetap menjadi status live tetapi tidak lagi ditulis berulang ke history setiap siklus engine.
+- **Internal Version Sync:** state dan `/api/health` melaporkan v1.9.2 melalui Worker QC wrapper.
 - Existing strategy, multi-coin scanner, AI validator, SL 10%, TP 30%, Safety Core v2, Performance Core, Dual USD/IDR, dan PC Fund tetap dipertahankan.
-- Binance market-data code dipertahankan hanya sebagai compatibility path; environment PAPER aktif mengarah ke `https://indodax.com`.
 
 ## Safety policy
 - `TRADING_MODE=paper`
 - `BROKER_LIVE_STAGE=LOCKED`
 - `ENABLE_LIVE_EXECUTION=NO`
 - Withdrawal tidak digunakan.
-- v1.9.1 tidak menambahkan pengirim order Indodax dan tidak membutuhkan API key/secret untuk market data publik.
-- Jangan simpan API key/secret di GitHub atau frontend.
+- Tidak ada Indodax private API key/secret dan tidak ada Indodax order sender.
+- Liquidity guard hanya memperketat entry; tidak membuka jalur live trading.
 
 ## Broker & data state
 - **PRIMARY BROKER:** Indodax public API
 - **MARKET DATA:** Indodax native public REST
-- **SECONDARY:** Tokocrypto compatibility probe
 - **EXECUTION:** PAPER only
+- **LIQUIDITY GUARD:** ACTIVE
+- **DECISION LOG DEDUP:** ACTIVE
 - **LIVE:** LOCKED
 
 ## Development
@@ -34,4 +34,4 @@ npm test
 npm run build
 ```
 
-Sinyal trading bersifat probabilistik dan tidak menjamin hasil. Forward-test PAPER harus menjadi dasar evaluasi sebelum perubahan risiko atau strategi berikutnya.
+Sinyal trading bersifat probabilistik dan tidak menjamin hasil. Forward-test PAPER tetap menjadi dasar evaluasi sebelum perubahan risiko atau strategi berikutnya.
