@@ -6,10 +6,10 @@
   "ownerRole": "KAI TRAD",
   "repository": "ardarawk-cloud/kai-trad-pwa.",
   "branch": "main",
-  "version": "v1.10.1",
+  "version": "v1.10.2",
   "lifecycle": "ACTIVE",
-  "operationalStatus": "PAPER_REJECTION_DIAGNOSTICS",
-  "summary": "Indodax-native PAPER trading workspace with Strategy Validation Lab, rejection diagnostics, threshold sensitivity analysis, Safety Core, and forward testing.",
+  "operationalStatus": "PAPER_CALIBRATION_LAB",
+  "summary": "Indodax-native PAPER trading workspace with historical scoring and entry calibration profiles, rejection diagnostics, Safety Core, and forward testing.",
   "appUrl": "https://kai-trad-pwa.ardarawk.workers.dev/",
   "sync": {
     "direction": "DIVISION_TO_ACC",
@@ -28,6 +28,8 @@
     "Historical Replay / Backtest",
     "Rejection Diagnostics",
     "Threshold Sensitivity 70/65/60",
+    "Scoring & Entry Calibration Lab",
+    "Calibration Profiles 70/65/60/55",
     "Bot Status",
     "Trade Journal",
     "Performance Analytics"
@@ -35,7 +37,8 @@
   "safety": {
     "tradingMode": "PAPER",
     "liveExecution": "LOCKED",
-    "validationOrderExecution": false
+    "validationOrderExecution": false,
+    "productionCalibrationApplied": false
   },
-  "updatedAt": "2026-08-13T04:05:00+08:00"
+  "updatedAt": "2026-08-13T04:23:00+08:00"
 }

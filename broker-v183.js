@@ -55,9 +55,9 @@ function installMobilePerformanceMode() {
 
 function applyReleaseLabel() {
   const eyebrow = document.querySelector(".broker-card .eyebrow");
-  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.0";
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.2";
   const footer = document.querySelector("footer span");
-  if (footer) footer.textContent = "KAI TRAD v1.10.0 • Strategy Validation Lab • Mobile Performance • PAPER Only";
+  if (footer) footer.textContent = "KAI TRAD v1.10.2 • Scoring & Entry Calibration Lab • PAPER Only";
 }
 
 function applyIndodaxPrimary(s) {
@@ -156,7 +156,9 @@ window.addEventListener("load", () => {
   installIndodaxCheck();
   refreshBroker();
   startBrokerPolling();
-  import("./validation-v110.js").catch(() => {});
+  import("./calibration-ui-v1102.js")
+    .then(() => import("./validation-v110.js"))
+    .catch(() => {});
 });
 
 document.addEventListener("visibilitychange", () => {
