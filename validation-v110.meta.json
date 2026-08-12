@@ -1,0 +1,10 @@
+{
+  "version": "1.10.0",
+  "mode": "HISTORICAL_DETERMINISTIC_PRE_AI",
+  "marketData": "INDODAX_PUBLIC_OHLC",
+  "windowsDays": [1, 3, 7],
+  "mainInterval": "15m",
+  "fastInterval": "5m",
+  "liveExecution": false,
+  "privateApi": false
+}
