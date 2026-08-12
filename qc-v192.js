@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.9.2";
+export const APP_VERSION = "1.9.3";
 
 export function assessLiquidity(candles, { lookback = 20, minActiveRatio = 0.60 } = {}) {
   const rows = Array.isArray(candles) ? candles.slice(-Math.max(1, lookback)) : [];

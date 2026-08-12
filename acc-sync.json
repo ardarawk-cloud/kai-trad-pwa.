@@ -6,10 +6,10 @@
   "ownerRole": "KAI TRAD",
   "repository": "ardarawk-cloud/kai-trad-pwa.",
   "branch": "main",
-  "version": "v1.9.2",
+  "version": "v1.9.3",
   "lifecycle": "ACTIVE",
-  "operationalStatus": "PAPER_QC_HARDENING",
-  "summary": "Indodax-native PAPER trading workspace with Safety Core, liquidity guard, decision-log deduplication, and performance monitoring.",
+  "operationalStatus": "PAPER_MOBILE_OPTIMIZED",
+  "summary": "Indodax-native PAPER trading workspace with Safety Core, liquidity guard, decision-log deduplication, mobile paint optimization, and performance monitoring.",
   "appUrl": "https://kai-trad-pwa.ardarawk.workers.dev/",
   "sync": {
     "direction": "DIVISION_TO_ACC",
@@ -23,6 +23,7 @@
     "Risk Control",
     "Liquidity Data Guard",
     "Decision Log Deduplication",
+    "Mobile Paint Optimization",
     "Bot Status",
     "Trade Journal",
     "Performance Analytics"
@@ -31,5 +32,5 @@
     "tradingMode": "PAPER",
     "liveExecution": "LOCKED"
   },
-  "updatedAt": "2026-08-12T10:37:00+08:00"
+  "updatedAt": "2026-08-13T02:30:00+08:00"
 }
