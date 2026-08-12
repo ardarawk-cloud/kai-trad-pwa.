@@ -134,10 +134,18 @@ async function runValidation() {
   }
 }
 
-window.addEventListener("load", () => {
+function initValidationLab() {
   installValidationStyles();
   installValidationCard();
+  const select = $v("validationSymbol");
   const active = document.getElementById("symbol")?.textContent?.trim();
-  if (active && [...$v("validationSymbol").options].some((o) => o.value === active)) $v("validationSymbol").value = active;
-  $v("validationRun")?.addEventListener("click", runValidation);
-});
+  if (select && active && [...select.options].some((o) => o.value === active)) select.value = active;
+  const run = $v("validationRun");
+  if (run && run.dataset.bound !== "1") {
+    run.dataset.bound = "1";
+    run.addEventListener("click", runValidation);
+  }
+}
+
+if (document.readyState === "loading") window.addEventListener("load", initValidationLab, { once: true });
+else initValidationLab();
