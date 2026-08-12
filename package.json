@@ -1,12 +1,12 @@
 {
   "name": "kai-trad-pwa",
-  "version": "1.9.1-indodax-market-data",
+  "version": "1.9.2-qc-hardening",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
     "dev": "npm run build && wrangler dev",
-    "test": "node --test engine.test.mjs indodax.test.mjs",
+    "test": "node --test engine.test.mjs indodax.test.mjs qc-v192.test.mjs",
     "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {

@@ -22,9 +22,9 @@ async function brokerState() {
 
 function applyReleaseLabel() {
   const eyebrow = document.querySelector(".broker-card .eyebrow");
-  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.9.1";
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.9.2";
   const footer = document.querySelector("footer span");
-  if (footer) footer.textContent = "KAI TRAD v1.9.1 • Indodax Native Market Data • PAPER Only";
+  if (footer) footer.textContent = "KAI TRAD v1.9.2 • Indodax Native Data • QC Hardened • PAPER Only";
 }
 
 function applyIndodaxPrimary(s) {
