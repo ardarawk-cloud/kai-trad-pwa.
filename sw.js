@@ -1,4 +1,4 @@
-const CACHE = "kai-trad-v110-strategy-validation";
+const CACHE = "kai-trad-v1101-rejection-diagnostics";
 const STATIC = ["/", "/index.html", "/app.css", "/app.js", "/broker-v183.js", "/validation-v110.js", "/manifest.webmanifest", "/icon.svg", "/kai-trad-logo.png", "/pwa-icon-192.png", "/pwa-icon-512.png"];
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((c) => c.addAll(STATIC)).then(() => self.skipWaiting())));
 self.addEventListener("activate", (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())));
