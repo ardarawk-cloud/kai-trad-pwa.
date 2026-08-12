@@ -10,22 +10,31 @@ function installValidationStyles() {
   const style = document.createElement("style");
   style.id = "kaiTradValidationStyles";
   style.textContent = `
-    .validation-card{padding:20px;margin-bottom:12px;content-visibility:auto;contain-intrinsic-size:auto 420px}
+    .validation-card{padding:20px;margin-bottom:12px;content-visibility:auto;contain-intrinsic-size:auto 520px}
     .validation-controls{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:10px;margin-top:16px}
     .validation-controls label{color:var(--muted);font-size:9px;letter-spacing:.1em;font-weight:700}
     .validation-controls select{width:100%;margin-top:7px;background:#0c0c0c;border:1px solid rgba(255,255,255,.1);border-radius:11px;padding:10px;color:var(--text)}
     .validation-controls button{align-self:end;min-height:40px}
     .validation-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:16px}
-    .validation-grid>div{padding:12px;background:rgba(255,255,255,.018);border:1px solid rgba(255,255,255,.05);border-radius:12px}
-    .validation-grid span{display:block;color:var(--muted);font-size:8px;letter-spacing:.1em;font-weight:700}
-    .validation-grid strong{display:block;margin-top:6px;font-size:13px}
+    .validation-grid>div,.diagnostic-grid>div,.sensitivity-grid>div{padding:12px;background:rgba(255,255,255,.018);border:1px solid rgba(255,255,255,.05);border-radius:12px}
+    .validation-grid span,.diagnostic-grid span,.sensitivity-grid span{display:block;color:var(--muted);font-size:8px;letter-spacing:.1em;font-weight:700}
+    .validation-grid strong,.diagnostic-grid strong,.sensitivity-grid strong{display:block;margin-top:6px;font-size:13px}
     .validation-note{margin-top:13px;color:var(--muted);font-size:10px;line-height:1.55}
     .validation-note strong{color:#d5d5d5}
     .validation-error{color:var(--red)!important}
+    .diagnostics{display:none;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)}
+    .diagnostics.show{display:block}
+    .diagnostics h4{margin:0 0 10px;font-size:13px}
+    .diagnostic-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .sensitivity-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+    .sensitivity-grid small{display:block;margin-top:4px;color:var(--muted);font-size:8px}
+    .diagnostic-breakdown{margin-top:10px;color:var(--muted);font-size:9px;line-height:1.6}
     @media(max-width:760px){
       .validation-card{background:#0d0d0d!important;box-shadow:0 8px 24px rgba(0,0,0,.32)!important;backdrop-filter:none!important}
       .validation-controls{grid-template-columns:1fr 1fr}.validation-controls button{grid-column:1/-1}
       .validation-grid{grid-template-columns:1fr 1fr 1fr}
+      .diagnostic-grid{grid-template-columns:1fr 1fr}
+      .sensitivity-grid{grid-template-columns:1fr 1fr 1fr}
     }
   `;
   document.head.appendChild(style);
@@ -61,6 +70,21 @@ function installValidationCard() {
       <div><span>MAX DD</span><strong id="validationDd">—</strong></div>
     </div>
     <p id="validationNote" class="validation-note"><strong>Historical deterministic pre-AI replay.</strong> Tidak mengirim order, tidak memakai private API, dan tidak menggantikan forward-test PAPER.</p>
+    <div id="validationDiagnostics" class="diagnostics">
+      <h4>Rejection Diagnostics</h4>
+      <div class="diagnostic-grid">
+        <div><span>TOP REJECT</span><strong id="diagTop">—</strong></div>
+        <div><span>MAIN SCORE P95</span><strong id="diagMainP95">—</strong></div>
+        <div><span>FAST SCORE P95</span><strong id="diagFastP95">—</strong></div>
+        <div><span>WEIGHTED P95</span><strong id="diagWeightedP95">—</strong></div>
+      </div>
+      <div class="sensitivity-grid">
+        <div><span>THRESHOLD 70</span><strong id="diag70">—</strong><small>aligned / eligible</small></div>
+        <div><span>THRESHOLD 65</span><strong id="diag65">—</strong><small>aligned / eligible</small></div>
+        <div><span>THRESHOLD 60</span><strong id="diag60">—</strong><small>aligned / eligible</small></div>
+      </div>
+      <p id="diagBreakdown" class="diagnostic-breakdown">—</p>
+    </div>
   `;
   const decisionCard = document.querySelector(".decision-card");
   if (decisionCard?.parentNode) decisionCard.parentNode.insertBefore(card, decisionCard);
@@ -69,12 +93,47 @@ function installValidationCard() {
 
 const usd = (n) => Number.isFinite(Number(n)) ? `$${Number(n).toFixed(2)}` : "—";
 const pct = (n) => Number.isFinite(Number(n)) ? `${Number(n).toFixed(2)}%` : "—";
+const score = (n) => Number.isFinite(Number(n)) ? Number(n).toFixed(1) : "—";
+
+const DIAG_LABELS = {
+  MAIN_SCORE: "MAIN SCORE",
+  FAST_SCORE: "FAST SCORE",
+  WEIGHTED_CONFIDENCE: "WEIGHTED CONF",
+  ABNORMAL_MARKET: "ABNORMAL MARKET",
+  LIQUIDITY: "LIQUIDITY",
+  BEARISH_REGIME: "BEARISH REGIME",
+  SIDEWAYS_QUALITY: "SIDEWAYS QUALITY",
+  BULLISH_QUALITY: "BULLISH QUALITY",
+  ELIGIBLE: "ELIGIBLE",
+};
 
 async function fetchCurrentConfig() {
   const res = await fetch("/api/state", { cache: "no-store", headers: validationAuthHeaders() });
   if (!res.ok) return {};
   const state = await res.json().catch(() => ({}));
   return state?.config || {};
+}
+
+function renderDiagnostics(result) {
+  const d = result?.diagnostics;
+  const box = $v("validationDiagnostics");
+  if (!d || !box) return;
+  box.classList.add("show");
+  const top = d.topReject || {};
+  $v("diagTop").textContent = `${DIAG_LABELS[top.code] || top.code || "—"} ${Number(top.pct || 0).toFixed(1)}%`;
+  $v("diagMainP95").textContent = score(d.scoreDistribution?.main?.p95);
+  $v("diagFastP95").textContent = score(d.scoreDistribution?.fast?.p95);
+  $v("diagWeightedP95").textContent = score(d.scoreDistribution?.weighted?.p95);
+  for (const threshold of [70, 65, 60]) {
+    const row = d.thresholdSensitivity?.[String(threshold)] || {};
+    $v(`diag${threshold}`).textContent = `${row.rawAligned || 0} / ${row.eligible || 0}`;
+  }
+  const rejects = (d.rejectionRows || []).slice(0, 4)
+    .map((row) => `${DIAG_LABELS[row.code] || row.code}: ${row.count} (${Number(row.pct || 0).toFixed(1)}%)`)
+    .join(" • ");
+  const r = d.regimes || {};
+  const regimes = `Regime BULL ${r.BULLISH?.count || 0} • SIDEWAYS ${r.SIDEWAYS?.count || 0} • BEAR ${r.BEARISH?.count || 0}`;
+  $v("diagBreakdown").textContent = `${rejects || "Tidak ada rejection."} | ${regimes}`;
 }
 
 function renderValidation(result) {
@@ -91,6 +150,7 @@ function renderValidation(result) {
   $v("validationBadge").className = `badge ${m.closedTrades >= 10 ? "good" : "muted"}`;
   $v("validationNote").className = "validation-note";
   $v("validationNote").innerHTML = `<strong>${result.symbol} • ${result.request?.days || "—"}d • ${result.sample?.decisions || 0} decisions</strong> • PRE-AI eligible BUY ${c.eligibleBuySignals || 0} • liquidity blocked ${c.liquidityBlocked || 0} • fees ${usd(m.estimatedFeesUsd || 0)}.<br>AI veto tidak direplay; forward-test PAPER tetap sumber validasi final.`;
+  renderDiagnostics(result);
 }
 
 async function runValidation() {
@@ -101,7 +161,7 @@ async function runValidation() {
   badge.textContent = "RUNNING";
   badge.className = "badge paper";
   $v("validationNote").className = "validation-note";
-  $v("validationNote").textContent = "Mengambil OHLC publik Indodax dan menjalankan replay strategy core. Tidak ada order yang dikirim.";
+  $v("validationNote").textContent = "Mengambil OHLC publik Indodax dan menjalankan replay strategy core + rejection diagnostics. Tidak ada order yang dikirim.";
 
   try {
     const cfg = await fetchCurrentConfig();
@@ -137,6 +197,10 @@ async function runValidation() {
 function initValidationLab() {
   installValidationStyles();
   installValidationCard();
+  const eyebrow = document.querySelector(".broker-card .eyebrow");
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.1";
+  const footer = document.querySelector("footer span");
+  if (footer) footer.textContent = "KAI TRAD v1.10.1 • Rejection Diagnostics • Strategy Validation Lab • PAPER Only";
   const select = $v("validationSymbol");
   const active = document.getElementById("symbol")?.textContent?.trim();
   if (select && active && [...select.options].some((o) => o.value === active)) select.value = active;

@@ -1,18 +1,24 @@
-# KAI TRAD v1.10 — Strategy Validation Lab
+# KAI TRAD v1.10.1 — Rejection Diagnostics
 
-KAI TRAD tetap **PAPER-first**. v1.10 mempertahankan Indodax Native Market Data, Safety Core, Liquidity Guard, Decision Log Dedup, dan Mobile Performance dari release sebelumnya, lalu menambahkan **Historical Replay / Backtest** untuk mengevaluasi strategy core tanpa membuka jalur live trading.
+KAI TRAD tetap **PAPER-first**. v1.10.1 mempertahankan Strategy Validation Lab v1.10 dan menambahkan **Rejection Diagnostics** untuk menjelaskan kenapa historical decision tidak lolos menjadi BUY sebelum AI validator.
 
-## v1.10
-- **Strategy Validation Lab:** backtest manual dari dashboard PWA.
-- Historical OHLC memakai **Indodax Public REST API** `/tradingview/history_v2`.
-- Window validasi dibatasi **1–7 hari** agar request dan compute tetap terkendali.
-- Main timeframe validasi: **15m**.
-- Fast timeframe validasi: **5m**, dibentuk dari candle 1m resmi Indodax seperti engine PAPER production.
-- Replay memakai entry pada candle berikutnya setelah signal close untuk mengurangi look-ahead bias.
-- PAPER fee simulation tetap **0.1% per side**, mengikuti engine PAPER saat ini.
-- SL tetap **10%**, TP tetap **30%**, max position/risk/daily-loss/cooldown mengikuti konfigurasi aman KAI TRAD.
-- Output: closed trades, win rate, profit factor, expectancy, net P&L, max drawdown, fee estimate, decision count, dan blocked-entry counters.
-- **AI validator tidak direplay.** Backtest ini mengukur deterministic strategy core sebelum runtime AI veto. Forward-test PAPER tetap menjadi sumber utama untuk performa final AI-gated.
+## v1.10.1
+- Historical Replay / Backtest tetap memakai **Indodax Public REST API**.
+- Window validasi tetap **1–7 hari**, main TF 15m dan fast TF 5m.
+- Diagnostic gate memisahkan penolakan karena:
+  - main-frame buy score,
+  - fast-frame buy score,
+  - weighted confidence,
+  - abnormal market,
+  - liquidity,
+  - bearish regime,
+  - sideways quality gate,
+  - bullish quality gate.
+- Menampilkan distribusi score **P50 / P90 / P95 / max**.
+- Menampilkan regime distribution BULLISH / SIDEWAYS / BEARISH.
+- Menambahkan **threshold sensitivity 70 / 65 / 60** berupa jumlah aligned BUY dan final pre-AI eligible BUY pada threshold hipotetis.
+- Threshold sensitivity hanya analisis historis; **tidak mengubah MIN_SIGNAL_CONFIDENCE production**.
+- AI validator tetap tidak direplay. Forward-test PAPER tetap sumber utama untuk performa final AI-gated.
 
 ## Safety policy
 - `TRADING_MODE=paper`
@@ -24,11 +30,11 @@ KAI TRAD tetap **PAPER-first**. v1.10 mempertahankan Indodax Native Market Data,
 - Withdrawal tetap disabled.
 
 ## Validation workflow
-1. Biarkan forward-test PAPER production tetap berjalan.
-2. Jalankan Historical Replay untuk 1, 3, atau 7 hari.
-3. Evaluasi jumlah trade terlebih dahulu sebelum membaca win rate/profit factor sebagai sinyal kuat.
-4. Bandingkan pola backtest dengan forward-test; jangan menganggap historical result sebagai jaminan hasil ke depan.
-5. Tuning strategi hanya dilakukan setelah sampel cukup dan safety metrics tetap terkendali.
+1. Jalankan BTCUSDT dan ETHUSDT pada window 7 hari.
+2. Baca **Top Reject** dan score P95 terlebih dahulu.
+3. Bandingkan threshold sensitivity 70/65/60.
+4. Jangan tuning production berdasarkan satu market atau satu window saja.
+5. Perubahan threshold/strategy hanya dilakukan setelah diagnostics menunjukkan pola konsisten dan Safety Core tetap terkunci.
 
 ## Development
 ```bash
