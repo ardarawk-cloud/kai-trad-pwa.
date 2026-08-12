@@ -1,4 +1,5 @@
 const $b = (id) => document.getElementById(id);
+let brokerPollTimer = null;
 
 function brokerAuthHeaders() {
   const token = localStorage.getItem("kaiTradAdminToken") || "";
@@ -20,11 +21,42 @@ async function brokerState() {
   return res.json();
 }
 
+function installMobilePerformanceMode() {
+  if (document.getElementById("kaiTradMobilePerf")) return;
+  const style = document.createElement("style");
+  style.id = "kaiTradMobilePerf";
+  style.textContent = `
+    @media (max-width: 760px) {
+      body { background: #050505 !important; }
+      .bg-grid { display: none !important; }
+      .card {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,.32) !important;
+        background: #0d0d0d !important;
+      }
+      .logo { filter: none !important; }
+      .badge .dot { box-shadow: none !important; }
+      .decision-card,
+      .performance-card,
+      .safety-card,
+      .broker-card,
+      .regime-card,
+      .scanner-card {
+        content-visibility: auto;
+        contain-intrinsic-size: auto 320px;
+      }
+      #priceChart { contain: paint; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function applyReleaseLabel() {
   const eyebrow = document.querySelector(".broker-card .eyebrow");
-  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.9.2";
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.9.3";
   const footer = document.querySelector("footer span");
-  if (footer) footer.textContent = "KAI TRAD v1.9.2 • Indodax Native Data • QC Hardened • PAPER Only";
+  if (footer) footer.textContent = "KAI TRAD v1.9.3 • Mobile Performance • Indodax Native Data • PAPER Only";
 }
 
 function applyIndodaxPrimary(s) {
@@ -75,9 +107,17 @@ function applyIndodaxPrimary(s) {
 }
 
 async function refreshBroker() {
+  if (document.visibilityState === "hidden") return;
   try {
     applyIndodaxPrimary(await brokerState());
   } catch {}
+}
+
+function startBrokerPolling() {
+  clearInterval(brokerPollTimer);
+  brokerPollTimer = null;
+  if (document.visibilityState !== "visible") return;
+  brokerPollTimer = setInterval(refreshBroker, 60000);
 }
 
 function installIndodaxCheck() {
@@ -110,8 +150,14 @@ function installIndodaxCheck() {
 }
 
 window.addEventListener("load", () => {
+  installMobilePerformanceMode();
   applyReleaseLabel();
   installIndodaxCheck();
   refreshBroker();
-  setInterval(refreshBroker, 15000);
+  startBrokerPolling();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshBroker();
+  startBrokerPolling();
 });
