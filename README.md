@@ -1,37 +1,40 @@
-# KAI TRAD v1.9.2 — Indodax PAPER QC Hardening
+# KAI TRAD v1.10 — Strategy Validation Lab
 
-KAI TRAD tetap **PAPER-first**. v1.9.2 mempertahankan Indodax Native Market Data dari v1.9.1 dan menambahkan quality-control guard berdasarkan hasil forward-test production.
+KAI TRAD tetap **PAPER-first**. v1.10 mempertahankan Indodax Native Market Data, Safety Core, Liquidity Guard, Decision Log Dedup, dan Mobile Performance dari release sebelumnya, lalu menambahkan **Historical Replay / Backtest** untuk mengevaluasi strategy core tanpa membuka jalur live trading.
 
-## v1.9.2
-- Primary public broker route: **Indodax**.
-- PAPER market-data source: **Indodax Public REST API**.
-- OHLC history tetap memakai `/tradingview/history_v2` dan ticker memakai `/api/ticker/{pair_id}`.
-- Fast timeframe 5m tetap dibentuk lokal dari lima candle 1m.
-- **Liquidity Data Guard:** entry BUY hanya eligible bila main TF dan fast TF masing-masing memiliki sedikitnya 60% candle dengan volume positif pada 20 candle terakhir. Candle volume 0 sesekali tetap ditoleransi.
-- **Decision Log Dedup:** `WAIT_NEXT_CLOSED_CANDLE` pada candle yang sama tetap menjadi status live tetapi tidak lagi ditulis berulang ke history setiap siklus engine.
-- **Internal Version Sync:** state dan `/api/health` melaporkan v1.9.2 melalui Worker QC wrapper.
-- Existing strategy, multi-coin scanner, AI validator, SL 10%, TP 30%, Safety Core v2, Performance Core, Dual USD/IDR, dan PC Fund tetap dipertahankan.
+## v1.10
+- **Strategy Validation Lab:** backtest manual dari dashboard PWA.
+- Historical OHLC memakai **Indodax Public REST API** `/tradingview/history_v2`.
+- Window validasi dibatasi **1–7 hari** agar request dan compute tetap terkendali.
+- Main timeframe validasi: **15m**.
+- Fast timeframe validasi: **5m**, dibentuk dari candle 1m resmi Indodax seperti engine PAPER production.
+- Replay memakai entry pada candle berikutnya setelah signal close untuk mengurangi look-ahead bias.
+- PAPER fee simulation tetap **0.1% per side**, mengikuti engine PAPER saat ini.
+- SL tetap **10%**, TP tetap **30%**, max position/risk/daily-loss/cooldown mengikuti konfigurasi aman KAI TRAD.
+- Output: closed trades, win rate, profit factor, expectancy, net P&L, max drawdown, fee estimate, decision count, dan blocked-entry counters.
+- **AI validator tidak direplay.** Backtest ini mengukur deterministic strategy core sebelum runtime AI veto. Forward-test PAPER tetap menjadi sumber utama untuk performa final AI-gated.
 
 ## Safety policy
 - `TRADING_MODE=paper`
 - `BROKER_LIVE_STAGE=LOCKED`
 - `ENABLE_LIVE_EXECUTION=NO`
-- Withdrawal tidak digunakan.
-- Tidak ada Indodax private API key/secret dan tidak ada Indodax order sender.
-- Liquidity guard hanya memperketat entry; tidak membuka jalur live trading.
+- Historical Validation Lab tidak memiliki order execution.
+- Tidak menggunakan Indodax private API key/secret.
+- Tidak ada Indodax live order sender.
+- Withdrawal tetap disabled.
 
-## Broker & data state
-- **PRIMARY BROKER:** Indodax public API
-- **MARKET DATA:** Indodax native public REST
-- **EXECUTION:** PAPER only
-- **LIQUIDITY GUARD:** ACTIVE
-- **DECISION LOG DEDUP:** ACTIVE
-- **LIVE:** LOCKED
+## Validation workflow
+1. Biarkan forward-test PAPER production tetap berjalan.
+2. Jalankan Historical Replay untuk 1, 3, atau 7 hari.
+3. Evaluasi jumlah trade terlebih dahulu sebelum membaca win rate/profit factor sebagai sinyal kuat.
+4. Bandingkan pola backtest dengan forward-test; jangan menganggap historical result sebagai jaminan hasil ke depan.
+5. Tuning strategi hanya dilakukan setelah sampel cukup dan safety metrics tetap terkendali.
 
 ## Development
 ```bash
 npm test
 npm run build
+npx wrangler deploy --dry-run --outdir .wrangler-dry
 ```
 
-Sinyal trading bersifat probabilistik dan tidak menjamin hasil. Forward-test PAPER tetap menjadi dasar evaluasi sebelum perubahan risiko atau strategi berikutnya.
+Sinyal trading bersifat probabilistik dan hasil historis tidak menjamin performa masa depan.
