@@ -42,7 +42,8 @@ function installMobilePerformanceMode() {
       .safety-card,
       .broker-card,
       .regime-card,
-      .scanner-card {
+      .scanner-card,
+      .validation-card {
         content-visibility: auto;
         contain-intrinsic-size: auto 320px;
       }
@@ -54,9 +55,9 @@ function installMobilePerformanceMode() {
 
 function applyReleaseLabel() {
   const eyebrow = document.querySelector(".broker-card .eyebrow");
-  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.9.3";
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.0";
   const footer = document.querySelector("footer span");
-  if (footer) footer.textContent = "KAI TRAD v1.9.3 • Mobile Performance • Indodax Native Data • PAPER Only";
+  if (footer) footer.textContent = "KAI TRAD v1.10.0 • Strategy Validation Lab • Mobile Performance • PAPER Only";
 }
 
 function applyIndodaxPrimary(s) {
@@ -155,6 +156,7 @@ window.addEventListener("load", () => {
   installIndodaxCheck();
   refreshBroker();
   startBrokerPolling();
+  import("./validation-v110.js").catch(() => {});
 });
 
 document.addEventListener("visibilitychange", () => {
