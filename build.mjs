@@ -4,6 +4,7 @@ const staticFiles = [
   "index.html",
   "app.js",
   "broker-v183.js",
+  "dashboard-pad.js",
   "validation-v110.js",
   "calibration-ui-v1102.js",
   "volume-audit-ui-v1104.js",
