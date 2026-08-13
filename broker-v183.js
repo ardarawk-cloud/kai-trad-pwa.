@@ -26,6 +26,13 @@ function installMobilePerformanceMode() {
   const style = document.createElement("style");
   style.id = "kaiTradMobilePerf";
   style.textContent = `
+    .brand .logo {
+      width: 100px !important;
+      height: 82px !important;
+      object-fit: contain !important;
+      transform: scaleX(1.14) scaleY(1.05);
+      transform-origin: left center;
+    }
     @media (max-width: 760px) {
       body { background: #050505 !important; }
       .bg-grid { display: none !important; }
@@ -34,6 +41,11 @@ function installMobilePerformanceMode() {
         backdrop-filter: none !important;
         box-shadow: 0 8px 24px rgba(0,0,0,.32) !important;
         background: #0d0d0d !important;
+      }
+      .brand .logo {
+        width: 92px !important;
+        height: 76px !important;
+        transform: scaleX(1.14) scaleY(1.05);
       }
       .logo { filter: none !important; }
       .badge .dot { box-shadow: none !important; }
@@ -48,6 +60,12 @@ function installMobilePerformanceMode() {
         contain-intrinsic-size: auto 320px;
       }
       #priceChart { contain: paint; }
+    }
+    @media (max-width: 390px) {
+      .brand .logo {
+        width: 84px !important;
+        height: 70px !important;
+      }
     }
   `;
   document.head.appendChild(style);
