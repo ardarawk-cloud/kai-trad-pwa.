@@ -6,10 +6,10 @@
   "ownerRole": "KAI TRAD",
   "repository": "ardarawk-cloud/kai-trad-pwa.",
   "branch": "main",
-  "version": "v1.10.3",
+  "version": "v1.10.4",
   "lifecycle": "ACTIVE",
-  "operationalStatus": "PAPER_POST_ALIGNMENT_FUNNEL",
-  "summary": "Indodax-native PAPER trading workspace with post-alignment funnel diagnostics, calibration profiles, rejection diagnostics, Safety Core, and forward testing.",
+  "operationalStatus": "PAPER_VOLUME_INTEGRITY_AUDIT",
+  "summary": "Indodax-native PAPER trading workspace with volume integrity and signal-coupling audit, post-alignment funnel diagnostics, calibration profiles, Safety Core, and forward testing.",
   "appUrl": "https://kai-trad-pwa.ardarawk.workers.dev/",
   "sync": {
     "direction": "DIVISION_TO_ACC",
@@ -32,6 +32,9 @@
     "Calibration Profiles 70/65/60/55",
     "Post-Alignment Funnel Diagnostics",
     "Dominant Post-Alignment Blocker",
+    "Volume Integrity Audit",
+    "Volume-Neutral Scoring Comparison",
+    "Signal Coupling Audit",
     "Bot Status",
     "Trade Journal",
     "Performance Analytics"
@@ -41,7 +44,8 @@
     "liveExecution": "LOCKED",
     "validationOrderExecution": false,
     "productionCalibrationApplied": false,
-    "productionFunnelApplied": false
+    "productionFunnelApplied": false,
+    "productionVolumeAuditApplied": false
   },
-  "updatedAt": "2026-08-13T13:52:00+08:00"
+  "updatedAt": "2026-08-13T18:03:00+08:00"
 }
