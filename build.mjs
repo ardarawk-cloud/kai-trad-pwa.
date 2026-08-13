@@ -6,6 +6,7 @@ const staticFiles = [
   "broker-v183.js",
   "validation-v110.js",
   "calibration-ui-v1102.js",
+  "volume-audit-ui-v1104.js",
   "app.css",
   "sw.js",
   "icon.svg",
