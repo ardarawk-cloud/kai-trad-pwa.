@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <filter id="black" color-interpolation-filters="sRGB">
-      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/>
-    </filter>
-  </defs>
-  <image href="/kai-trad-logo.png" x="0" y="0" width="512" height="512" preserveAspectRatio="xMidYMid meet" filter="url(#black)"/>
-</svg>
