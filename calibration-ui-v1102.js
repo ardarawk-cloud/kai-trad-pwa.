@@ -26,7 +26,6 @@ function installCalibrationStyles() {
   `;
   document.head.appendChild(style);
 }
-
 function installCalibrationBlock() {
   if (document.getElementById("validationCalibration")) return;
   const diagnostics = document.getElementById("validationDiagnostics");
@@ -35,89 +34,11 @@ function installCalibrationBlock() {
   const block = document.createElement("div");
   block.id = "validationCalibration";
   block.className = "calibration-block";
-  block.innerHTML = `
-    <h4>Scoring & Entry Calibration</h4>
-    <div class="calibration-table-wrap">
-      <table class="calibration-table">
-        <thead><tr><th>PROFILE</th><th>ALIGNED</th><th>ELIGIBLE</th><th>TRADES</th><th>WIN %</th><th>PF</th><th>EXP</th><th>P&L</th><th>DD</th></tr></thead>
-        <tbody id="calibrationRows"></tbody>
-      </table>
-    </div>
-    <p id="calibrationNote" class="calibration-note">Historical experiment only. Production remains locked at threshold 70.</p>
-    <div id="postAlignmentFunnel" class="funnel-block">
-      <h4>Post-Alignment Funnel</h4>
-      <div id="funnelRows" class="funnel-grid"></div>
-      <p class="calibration-note">First-block diagnostics after score alignment. Production strategy is unchanged.</p>
-    </div>
-  `;
+  block.innerHTML = `<h4>Scoring & Entry Calibration</h4><div class="calibration-table-wrap"><table class="calibration-table"><thead><tr><th>PROFILE</th><th>ALIGNED</th><th>ELIGIBLE</th><th>TRADES</th><th>WIN %</th><th>PF</th><th>EXP</th><th>P&L</th><th>DD</th></tr></thead><tbody id="calibrationRows"></tbody></table></div><p id="calibrationNote" class="calibration-note">Historical experiment only. Production remains locked at threshold 70.</p><div id="postAlignmentFunnel" class="funnel-block"><h4>Post-Alignment Funnel</h4><div id="funnelRows" class="funnel-grid"></div><p class="calibration-note">First-block diagnostics after score alignment. Production strategy is unchanged.</p></div>`;
   host.appendChild(block);
 }
-
-const num = (v, digits = 2) => Number.isFinite(Number(v)) ? Number(v).toFixed(digits) : "—";
-const usd = (v) => Number.isFinite(Number(v)) ? `$${Number(v).toFixed(2)}` : "—";
-
-const FUNNEL_LABELS = {
-  ABNORMAL_MARKET: "ABNORMAL MARKET",
-  LIQUIDITY: "LIQUIDITY",
-  BEARISH_REGIME: "BEARISH REGIME",
-  SIDEWAYS_QUALITY: "SIDEWAYS QUALITY",
-  BULLISH_QUALITY: "BULLISH QUALITY",
-  COOLDOWN: "COOLDOWN",
-  DAILY_LOSS: "DAILY LOSS",
-  NONE: "NONE",
-};
-
-function renderFunnel(funnel) {
-  const block = document.getElementById("postAlignmentFunnel");
-  const host = document.getElementById("funnelRows");
-  if (!block || !host || !Array.isArray(funnel?.rows)) return;
-  block.classList.add("show");
-  host.innerHTML = funnel.rows.map((row) => {
-    const b = row.blockers || {};
-    const s = row.survivors || {};
-    const d = row.dominantBlocker || {};
-    return `<div class="funnel-card">
-      <strong>${row.label || row.id}</strong>
-      <div class="funnel-dominant">TOP: ${FUNNEL_LABELS[d.code] || d.code || "—"} ${d.count || 0} (${num(d.pct || 0, 1)}%)</div>
-      <div class="funnel-breakdown">ABN ${b.abnormalMarket || 0} • LIQ ${b.liquidity || 0} • BEAR ${b.bearishRegime || 0} • SIDE Q ${b.sidewaysQuality || 0} • BULL Q ${b.bullishQuality || 0} • COOL ${b.cooldown || 0} • DAY ${b.dailyLoss || 0}</div>
-      <div class="funnel-path">SURVIVE: ${s.aligned || 0} → ${s.afterAbnormal || 0} → ${s.afterLiquidity || 0} → ${s.afterBearish || 0} → ${s.afterQuality || 0} → ${s.preRiskEligible || 0} → ${s.finalEligible || 0}</div>
-    </div>`;
-  }).join("");
-}
-
-function renderCalibration(calibration) {
-  installCalibrationStyles();
-  installCalibrationBlock();
-  const block = document.getElementById("validationCalibration");
-  const body = document.getElementById("calibrationRows");
-  if (!block || !body || !calibration?.profiles) return;
-
-  block.classList.add("show");
-  body.innerHTML = calibration.profiles.map((row) => {
-    const m = row.metrics || {};
-    const pnlClass = Number(m.netPnl) > 0 ? "positive" : Number(m.netPnl) < 0 ? "negative" : "";
-    const pf = m.profitFactor == null ? (Number(m.closedTrades) ? "∞" : "—") : num(m.profitFactor, 2);
-    return `<tr>
-      <td><strong>${row.label || row.id}</strong><br><small>${m.sampleStatus || "LOW_SAMPLE"}</small></td>
-      <td>${row.alignedSignals || 0}</td>
-      <td>${row.eligibleSignals || 0}</td>
-      <td>${m.closedTrades || 0}</td>
-      <td>${Number(m.closedTrades) ? `${num(m.winRatePct, 1)}%` : "—"}</td>
-      <td>${pf}</td>
-      <td>${Number(m.closedTrades) ? usd(m.expectancyUsd) : "—"}</td>
-      <td class="${pnlClass}">${usd(m.netPnl || 0)}</td>
-      <td>${num(m.maxDrawdownPct || 0, 2)}%</td>
-    </tr>`;
-  }).join("");
-
-  const note = document.getElementById("calibrationNote");
-  if (note) {
-    note.textContent = `Historical only • ${calibration.decisions || 0} decisions • production threshold ${calibration.productionThreshold || 70} tetap aktif • tidak ada profile yang otomatis dipromosikan.`;
-  }
-  renderFunnel(calibration.funnel);
-  window.KAITradVolumeAuditUI?.render(calibration.volumeAudit);
-}
-
-installCalibrationStyles();
-installCalibrationBlock();
-window.KAITradCalibrationUI = { render: renderCalibration };
+const num=(v,digits=2)=>Number.isFinite(Number(v))?Number(v).toFixed(digits):"—";const usd=(v)=>Number.isFinite(Number(v))?`$${Number(v).toFixed(2)}`:"—";
+const FUNNEL_LABELS={ABNORMAL_MARKET:"ABNORMAL MARKET",LIQUIDITY:"LIQUIDITY",BEARISH_REGIME:"BEARISH REGIME",SIDEWAYS_QUALITY:"SIDEWAYS QUALITY",BULLISH_QUALITY:"BULLISH QUALITY",COOLDOWN:"COOLDOWN",DAILY_LOSS:"DAILY LOSS",NONE:"NONE"};
+function renderFunnel(funnel){const block=document.getElementById("postAlignmentFunnel"),host=document.getElementById("funnelRows");if(!block||!host||!Array.isArray(funnel?.rows))return;block.classList.add("show");host.innerHTML=funnel.rows.map((row)=>{const b=row.blockers||{},s=row.survivors||{},d=row.dominantBlocker||{};return `<div class="funnel-card"><strong>${row.label||row.id}</strong><div class="funnel-dominant">TOP: ${FUNNEL_LABELS[d.code]||d.code||"—"} ${d.count||0} (${num(d.pct||0,1)}%)</div><div class="funnel-breakdown">ABN ${b.abnormalMarket||0} • LIQ ${b.liquidity||0} • BEAR ${b.bearishRegime||0} • SIDE Q ${b.sidewaysQuality||0} • BULL Q ${b.bullishQuality||0} • COOL ${b.cooldown||0} • DAY ${b.dailyLoss||0}</div><div class="funnel-path">SURVIVE: ${s.aligned||0} → ${s.afterAbnormal||0} → ${s.afterLiquidity||0} → ${s.afterBearish||0} → ${s.afterQuality||0} → ${s.preRiskEligible||0} → ${s.finalEligible||0}</div></div>`}).join("")}
+function renderCalibration(calibration){installCalibrationStyles();installCalibrationBlock();const block=document.getElementById("validationCalibration"),body=document.getElementById("calibrationRows");if(!block||!body||!calibration?.profiles)return;block.classList.add("show");body.innerHTML=calibration.profiles.map((row)=>{const m=row.metrics||{},pnlClass=Number(m.netPnl)>0?"positive":Number(m.netPnl)<0?"negative":"",pf=m.profitFactor==null?(Number(m.closedTrades)?"∞":"—"):num(m.profitFactor,2);return `<tr><td><strong>${row.label||row.id}</strong><br><small>${m.sampleStatus||"LOW_SAMPLE"}</small></td><td>${row.alignedSignals||0}</td><td>${row.eligibleSignals||0}</td><td>${m.closedTrades||0}</td><td>${Number(m.closedTrades)?`${num(m.winRatePct,1)}%`:"—"}</td><td>${pf}</td><td>${Number(m.closedTrades)?usd(m.expectancyUsd):"—"}</td><td class="${pnlClass}">${usd(m.netPnl||0)}</td><td>${num(m.maxDrawdownPct||0,2)}%</td></tr>`}).join("");const note=document.getElementById("calibrationNote");if(note)note.textContent=`Historical only • ${calibration.decisions||0} decisions • production threshold ${calibration.productionThreshold||70} tetap aktif • tidak ada profile yang otomatis dipromosikan.`;renderFunnel(calibration.funnel);window.KAITradVolumeAuditUI?.render(calibration.volumeAudit);window.KAITradVolumeReliabilityUI?.render(calibration.volumeReliability)}
+installCalibrationStyles();installCalibrationBlock();window.KAITradCalibrationUI={render:renderCalibration};
