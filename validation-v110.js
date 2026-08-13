@@ -10,7 +10,7 @@ function installValidationStyles() {
   const style = document.createElement("style");
   style.id = "kaiTradValidationStyles";
   style.textContent = `
-    .validation-card{padding:20px;margin-bottom:12px;content-visibility:auto;contain-intrinsic-size:auto 680px}
+    .validation-card{padding:20px;margin-bottom:12px;content-visibility:auto;contain-intrinsic-size:auto 760px}
     .validation-controls{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:10px;margin-top:16px}
     .validation-controls label{color:var(--muted);font-size:9px;letter-spacing:.1em;font-weight:700}
     .validation-controls select{width:100%;margin-top:7px;background:#0c0c0c;border:1px solid rgba(255,255,255,.1);border-radius:11px;padding:10px;color:var(--text)}
@@ -162,7 +162,7 @@ async function runValidation() {
   badge.textContent = "RUNNING";
   badge.className = "badge paper";
   $v("validationNote").className = "validation-note";
-  $v("validationNote").textContent = "Mengambil OHLC publik Indodax dan menjalankan replay + diagnostics + calibration profiles. Tidak ada order yang dikirim.";
+  $v("validationNote").textContent = "Mengambil OHLC publik Indodax dan menjalankan replay + diagnostics + calibration + post-alignment funnel. Tidak ada order yang dikirim.";
 
   try {
     const cfg = await fetchCurrentConfig();
@@ -199,9 +199,9 @@ function initValidationLab() {
   installValidationStyles();
   installValidationCard();
   const eyebrow = document.querySelector(".broker-card .eyebrow");
-  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.2";
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.3";
   const footer = document.querySelector("footer span");
-  if (footer) footer.textContent = "KAI TRAD v1.10.2 • Scoring & Entry Calibration Lab • PAPER Only";
+  if (footer) footer.textContent = "KAI TRAD v1.10.3 • Post-Alignment Funnel • PAPER Only";
   const select = $v("validationSymbol");
   const active = document.getElementById("symbol")?.textContent?.trim();
   if (select && active && [...select.options].some((o) => o.value === active)) select.value = active;
