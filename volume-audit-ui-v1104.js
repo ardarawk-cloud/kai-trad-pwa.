@@ -89,3 +89,4 @@ function renderVolumeAudit(audit) {
 installVolumeAuditStyles();
 applyVolumeAuditReleaseLabel();
 window.KAITradVolumeAuditUI = { render: renderVolumeAudit };
+import("./dashboard-pad.js").catch(() => {});
