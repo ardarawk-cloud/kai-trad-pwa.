@@ -87,6 +87,5 @@ function renderVolumeAudit(audit) {
 }
 
 installVolumeAuditStyles();
-installVolumeAuditBlock();
 applyVolumeAuditReleaseLabel();
 window.KAITradVolumeAuditUI = { render: renderVolumeAudit };
