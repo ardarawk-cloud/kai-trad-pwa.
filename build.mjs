@@ -11,6 +11,7 @@ const staticFiles = [
   "sw.js",
   "icon.svg",
   "kai-trad-logo.png",
+  "kai-trad-launcher-black.svg",
   "pwa-icon-192.png",
   "pwa-icon-512.png",
   "manifest.webmanifest",
