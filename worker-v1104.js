@@ -113,6 +113,7 @@ async function runValidation(request, env) {
       fastCandles,
       startMs,
     });
+    calibration.volumeAudit = volumeAudit;
 
     return json({
       ok: true,
