@@ -10,6 +10,6 @@
   "theme_color": "#090909",
   "orientation": "portrait",
   "icons": [
-    { "src": "/kai-trad-launcher-black.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    { "src": "/kai-trad-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
