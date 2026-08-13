@@ -115,6 +115,7 @@ function renderCalibration(calibration) {
     note.textContent = `Historical only • ${calibration.decisions || 0} decisions • production threshold ${calibration.productionThreshold || 70} tetap aktif • tidak ada profile yang otomatis dipromosikan.`;
   }
   renderFunnel(calibration.funnel);
+  window.KAITradVolumeAuditUI?.render(calibration.volumeAudit);
 }
 
 installCalibrationStyles();
