@@ -20,6 +20,13 @@ function installVolumeAuditStyles() {
   document.head.appendChild(style);
 }
 
+function applyVolumeAuditReleaseLabel() {
+  const eyebrow = document.querySelector(".broker-card .eyebrow");
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.4";
+  const footer = document.querySelector("footer span");
+  if (footer) footer.textContent = "KAI TRAD v1.10.4 • Volume Integrity Audit • PAPER Only";
+}
+
 function installVolumeAuditBlock() {
   if (document.getElementById("validationVolumeAudit")) return;
   const calibration = document.getElementById("validationCalibration");
@@ -47,6 +54,7 @@ const n = (v, d = 1) => Number.isFinite(Number(v)) ? Number(v).toFixed(d) : "—
 function renderVolumeAudit(audit) {
   installVolumeAuditStyles();
   installVolumeAuditBlock();
+  applyVolumeAuditReleaseLabel();
   const block = document.getElementById("validationVolumeAudit");
   const host = document.getElementById("volumeProfileRows");
   if (!block || !host || !audit?.profiles) return;
@@ -80,4 +88,5 @@ function renderVolumeAudit(audit) {
 
 installVolumeAuditStyles();
 installVolumeAuditBlock();
+applyVolumeAuditReleaseLabel();
 window.KAITradVolumeAuditUI = { render: renderVolumeAudit };
