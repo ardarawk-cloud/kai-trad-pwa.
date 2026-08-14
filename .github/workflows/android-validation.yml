@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - agent/kai-trad-android-shell-v1
+      - agent/kai-trad-android-production-signing
     paths:
       - 'android/**'
       - 'pwa-icon-512.png'
       - '.github/workflows/android-validation.yml'
+      - '.github/workflows/android-production-release.yml'
   pull_request:
     branches:
       - main
@@ -16,6 +18,7 @@ on:
       - 'android/**'
       - 'pwa-icon-512.png'
       - '.github/workflows/android-validation.yml'
+      - '.github/workflows/android-production-release.yml'
   workflow_dispatch:
 
 permissions:
