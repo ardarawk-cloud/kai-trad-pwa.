@@ -1,6 +1,10 @@
 const $b = (id) => document.getElementById(id);
 let brokerPollTimer = null;
 
+// Core dashboard navigation must load immediately and independently from
+// window load timing and the validation/audit module chain.
+import("./dashboard-pad.js?v=1105-static").catch(() => {});
+
 function brokerAuthHeaders() {
   const token = localStorage.getItem("kaiTradAdminToken") || "";
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -174,10 +178,6 @@ window.addEventListener("load", () => {
   installIndodaxCheck();
   refreshBroker();
   startBrokerPolling();
-
-  // Dashboard navigation is a core UI feature and must not depend on
-  // validation/audit modules loading successfully.
-  import("./dashboard-pad.js").catch(() => {});
 
   import("./calibration-ui-v1102.js")
     .then(() => import("./validation-v110.js"))
