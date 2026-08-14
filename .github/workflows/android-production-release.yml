@@ -1,0 +1,86 @@
+name: KAI TRAD Android Production Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'kai-trad-android-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      KAI_TRAD_ANDROID_KEYSTORE_B64: ${{ secrets.KAI_TRAD_ANDROID_KEYSTORE_B64 }}
+      KAI_TRAD_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KAI_TRAD_ANDROID_KEYSTORE_PASSWORD }}
+      KAI_TRAD_ANDROID_KEY_ALIAS: ${{ secrets.KAI_TRAD_ANDROID_KEY_ALIAS }}
+      KAI_TRAD_ANDROID_KEY_PASSWORD: ${{ secrets.KAI_TRAD_ANDROID_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Prepare launcher asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p android/app/src/main/res/drawable-nodpi
+          cp pwa-icon-512.png android/app/src/main/res/drawable-nodpi/kai_trad_logo.png
+
+      - name: Validate production signing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in KAI_TRAD_ANDROID_KEYSTORE_B64 KAI_TRAD_ANDROID_KEYSTORE_PASSWORD KAI_TRAD_ANDROID_KEY_ALIAS KAI_TRAD_ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::$name is required for production signing"
+              exit 1
+            fi
+          done
+
+      - name: Restore production keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/kai-trad-production.jks"
+          printf '%s' "$KAI_TRAD_ANDROID_KEYSTORE_B64" | base64 --decode > "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+          echo "KAI_TRAD_ANDROID_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+
+      - name: Build signed production APK
+        working-directory: android
+        run: gradle --no-daemon clean assembleRelease
+
+      - name: Verify APK signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload production APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KAI-TRAD-Android-Production
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
