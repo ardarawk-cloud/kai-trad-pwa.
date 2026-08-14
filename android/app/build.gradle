@@ -1,0 +1,52 @@
+apply plugin: 'com.android.application'
+
+def releaseKeystorePath = System.getenv('KAI_TRAD_ANDROID_KEYSTORE_PATH')
+def releaseStorePassword = System.getenv('KAI_TRAD_ANDROID_KEYSTORE_PASSWORD')
+def releaseKeyAlias = System.getenv('KAI_TRAD_ANDROID_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('KAI_TRAD_ANDROID_KEY_PASSWORD')
+def releaseSigningReady = [releaseKeystorePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword]
+        .every { value -> value != null && !value.trim().isEmpty() }
+
+android {
+    namespace 'com.ardacore.kaitrad'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.ardacore.kaitrad'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '0.1.0'
+    }
+
+    signingConfigs {
+        release {
+            if (releaseSigningReady) {
+                storeFile file(releaseKeystorePath)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+        }
+        release {
+            debuggable false
+            minifyEnabled true
+            shrinkResources true
+            if (releaseSigningReady) {
+                signingConfig signingConfigs.release
+            }
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

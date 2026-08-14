@@ -1,0 +1,2 @@
+-keep class com.ardacore.kaitrad.KaiTradActivity { *; }
+-keep class com.ardacore.kaitrad.KaiTradNavigationPolicy { *; }
