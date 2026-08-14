@@ -3,6 +3,8 @@ name: KAI TRAD Android Production Release
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - 'kai-trad-android-v*'
 
