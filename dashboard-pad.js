@@ -3,16 +3,31 @@ const PANEL_GROUPS = {
   2: [".regime-card", ".scanner-card", ".split-grid"],
   3: ["#validationLabCard"],
   4: [".safety-card", ".broker-card", "section.card:has(#toggleSettings)"],
-  5: [".decision-card", "section.card:has(#executionList)"],
+  5: [".decision-card"],
 };
 
 function queryAllSafe(selector) {
   try { return [...document.querySelectorAll(selector)]; } catch { return []; }
 }
 
+function executionLogCards() {
+  return [...document.querySelectorAll("section.card")].filter((el) => {
+    const text = String(el.textContent || "").toUpperCase();
+    return text.includes("EXECUTION LOG") || text.includes("RECENT TRADES");
+  });
+}
+
+function panelsForGroup(group) {
+  const set = new Set();
+  (PANEL_GROUPS[group] || []).forEach((selector) => queryAllSafe(selector).forEach((el) => set.add(el)));
+  if (Number(group) === 5) executionLogCards().forEach((el) => set.add(el));
+  return [...set];
+}
+
 function collectManagedPanels() {
   const set = new Set();
-  Object.values(PANEL_GROUPS).flat().forEach((selector) => queryAllSafe(selector).forEach((el) => set.add(el)));
+  Object.keys(PANEL_GROUPS).forEach((group) => panelsForGroup(group).forEach((el) => set.add(el)));
+  executionLogCards().forEach((el) => set.add(el));
   return [...set];
 }
 
@@ -26,14 +41,28 @@ function installPadStyles() {
     .dashboard-pad button.active{color:#72e6ff;border-color:rgba(114,230,255,.48);background:rgba(114,230,255,.08)}
     .dashboard-pad-note{margin:0 0 12px;color:var(--muted);font-size:9px;text-align:center;letter-spacing:.04em}
     .pad-hidden{display:none!important}
-    @media(max-width:760px){.dashboard-pad{position:sticky;top:8px;z-index:20;background:#050505;padding:6px 0}.dashboard-pad button{min-height:40px}}
+    .brand .logo{width:108px!important;height:84px!important;object-fit:contain!important;transform:scaleX(1.20) scaleY(1.04)!important;transform-origin:left center!important;filter:none!important}
+    @media(max-width:760px){
+      .dashboard-pad{position:sticky;top:8px;z-index:20;background:#050505;padding:6px 0}
+      .dashboard-pad button{min-height:40px}
+      .brand .logo{width:96px!important;height:76px!important;transform:scaleX(1.20) scaleY(1.04)!important}
+    }
+    @media(max-width:390px){.brand .logo{width:88px!important;height:70px!important}}
   `;
   document.head.appendChild(style);
+}
+
+function applyUiReleaseLabels() {
+  const eyebrow = document.querySelector(".broker-card .eyebrow");
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.5";
+  const footer = document.querySelector("footer span");
+  if (footer) footer.textContent = "KAI TRAD v1.10.5 • Historical Volume Reliability Audit • PAPER Only";
 }
 
 function installDashboardPad() {
   if (document.getElementById("dashboardPad")) return;
   installPadStyles();
+  applyUiReleaseLabels();
   const controls = document.querySelector(".controls.card");
   const hero = document.querySelector(".hero.card");
   if (!controls || !hero) return;
@@ -46,11 +75,10 @@ function installDashboardPad() {
   let active = 0;
 
   const apply = () => {
+    applyUiReleaseLabels();
     const managed = collectManagedPanels();
-    managed.forEach((el) => {
-      const show = active > 0 && PANEL_GROUPS[active]?.some((selector) => queryAllSafe(selector).includes(el));
-      el.classList.toggle("pad-hidden", !show);
-    });
+    const visible = new Set(active > 0 ? panelsForGroup(active) : []);
+    managed.forEach((el) => el.classList.toggle("pad-hidden", !visible.has(el)));
     hero.classList.remove("pad-hidden");
     controls.classList.toggle("pad-hidden", active > 0);
     wrap.querySelectorAll("button[data-pad]").forEach((btn) => btn.classList.toggle("active", Number(btn.dataset.pad) === active));
