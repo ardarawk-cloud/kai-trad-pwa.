@@ -43,7 +43,6 @@ function installDashboardPad() {
   wrap.innerHTML = `<div class="dashboard-pad">${[1,2,3,4,5].map((n)=>`<button type="button" data-pad="${n}" aria-label="Open panel ${n}">${n}</button>`).join("")}</div><p class="dashboard-pad-note">Tap nomor untuk buka panel • tap lagi untuk kembali ke dashboard utama</p>`;
   hero.insertAdjacentElement("afterend", wrap);
 
-  const frontKeep = new Set([hero, controls]);
   let active = 0;
 
   const apply = () => {
@@ -52,7 +51,8 @@ function installDashboardPad() {
       const show = active > 0 && PANEL_GROUPS[active]?.some((selector) => queryAllSafe(selector).includes(el));
       el.classList.toggle("pad-hidden", !show);
     });
-    frontKeep.forEach((el) => el?.classList.remove("pad-hidden"));
+    hero.classList.remove("pad-hidden");
+    controls.classList.toggle("pad-hidden", active > 0);
     wrap.querySelectorAll("button[data-pad]").forEach((btn) => btn.classList.toggle("active", Number(btn.dataset.pad) === active));
     if (active > 0) requestAnimationFrame(() => wrap.scrollIntoView({ block: "start", behavior: "smooth" }));
   };
