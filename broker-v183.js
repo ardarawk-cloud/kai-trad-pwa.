@@ -73,9 +73,9 @@ function installMobilePerformanceMode() {
 
 function applyReleaseLabel() {
   const eyebrow = document.querySelector(".broker-card .eyebrow");
-  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.4";
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.5";
   const footer = document.querySelector("footer span");
-  if (footer) footer.textContent = "KAI TRAD v1.10.4 • Volume Integrity Audit • PAPER Only";
+  if (footer) footer.textContent = "KAI TRAD v1.10.5 • Historical Volume Reliability Audit • PAPER Only";
 }
 
 function applyIndodaxPrimary(s) {
@@ -174,6 +174,11 @@ window.addEventListener("load", () => {
   installIndodaxCheck();
   refreshBroker();
   startBrokerPolling();
+
+  // Dashboard navigation is a core UI feature and must not depend on
+  // validation/audit modules loading successfully.
+  import("./dashboard-pad.js").catch(() => {});
+
   import("./calibration-ui-v1102.js")
     .then(() => import("./validation-v110.js"))
     .then(() => import("./volume-audit-ui-v1104.js"))
