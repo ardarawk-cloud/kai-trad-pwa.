@@ -7,12 +7,14 @@ on:
       - agent/kai-trad-android-shell-v1
     paths:
       - 'android/**'
+      - 'pwa-icon-512.png'
       - '.github/workflows/android-validation.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'android/**'
+      - 'pwa-icon-512.png'
       - '.github/workflows/android-validation.yml'
   workflow_dispatch:
 
@@ -27,6 +29,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Prepare existing wolf logo for Android resources
+        shell: bash
+        run: |
+          mkdir -p android/app/src/main/res/drawable
+          cp pwa-icon-512.png android/app/src/main/res/drawable/kai_trad_logo.png
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
