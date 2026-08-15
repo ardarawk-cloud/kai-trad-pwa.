@@ -10,16 +10,31 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
   headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
 });
 
+function paperTrialEnabled(env) {
+  return env.TRADING_MODE !== "live" && String(env.PAPER_TRIAL_MODE || "").toUpperCase() === "SAMPLE_10";
+}
+
 export class TradingState extends BaseTradingState {
   async state() {
     const s = await super.state();
     s.version = APP_VERSION;
+
+    // PAPER-only sampling mode: create enough simulated decisions/trades to validate
+    // the execution engine. Live execution gates and core loss controls remain untouched.
+    if (paperTrialEnabled(this.env)) {
+      s.config.minSignalConfidence = Number(this.env.PAPER_TRIAL_MIN_SIGNAL_CONFIDENCE || 60);
+      s.config.aiValidation = String(this.env.PAPER_TRIAL_AI_VALIDATION || "false") === "true";
+    }
     return s;
   }
 
   async scanSymbol(baseUrl, s, symbol) {
     const result = await super.scanSymbol(baseUrl, s, symbol);
-    const liquidity = assessMultiTimeframeLiquidity(result.mainCandles, result.fastCandles);
+    const trial = paperTrialEnabled(this.env);
+    const liquidityOptions = trial
+      ? { minActiveRatio: Number(this.env.PAPER_TRIAL_MIN_ACTIVE_RATIO || 0.30) }
+      : undefined;
+    const liquidity = assessMultiTimeframeLiquidity(result.mainCandles, result.fastCandles, liquidityOptions);
 
     result.analysis.liquidity = liquidity;
     result.analysis.main.indicators.liquidityHealthy = liquidity.healthy;
@@ -78,6 +93,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/api/health") {
+      const trial = paperTrialEnabled(env);
       return json({
         ok: true,
         service: "KAI TRAD",
@@ -89,6 +105,12 @@ export default {
         liveStage: env.BROKER_LIVE_STAGE || "LOCKED",
         liveExecutionEnabled: env.ENABLE_LIVE_EXECUTION === "YES_I_ACCEPT_RISK",
         liquidityGuard: "ACTIVE",
+        paperTrial: trial ? {
+          mode: "SAMPLE_10",
+          minSignalConfidence: Number(env.PAPER_TRIAL_MIN_SIGNAL_CONFIDENCE || 60),
+          minLiquidityActiveRatio: Number(env.PAPER_TRIAL_MIN_ACTIVE_RATIO || 0.30),
+          aiValidation: String(env.PAPER_TRIAL_AI_VALIDATION || "false") === "true",
+        } : null,
         decisionLogDedup: "ACTIVE",
         time: new Date().toISOString(),
       });
