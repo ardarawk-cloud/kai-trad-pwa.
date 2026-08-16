@@ -73,9 +73,9 @@ function installMobilePerformanceMode() {
 
 function applyReleaseLabel() {
   const eyebrow = document.querySelector(".broker-card .eyebrow");
-  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.4";
+  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.5";
   const footer = document.querySelector("footer span");
-  if (footer) footer.textContent = "KAI TRAD v1.10.4 • Volume Integrity Audit • PAPER Only";
+  if (footer) footer.textContent = "KAI TRAD v1.10.5 • Historical Volume Reliability Audit • PAPER Only";
 }
 
 function applyIndodaxPrimary(s) {
@@ -177,7 +177,9 @@ window.addEventListener("load", () => {
   import("./calibration-ui-v1102.js")
     .then(() => import("./validation-v110.js"))
     .then(() => import("./volume-audit-ui-v1104.js"))
-    .catch(() => {});
+    .then(() => import("./volume-reliability-ui-v1105.js"))
+    .catch(() => {})
+    .finally(() => applyReleaseLabel());
 });
 
 document.addEventListener("visibilitychange", () => {

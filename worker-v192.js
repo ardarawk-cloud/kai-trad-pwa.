@@ -43,9 +43,17 @@ export class TradingState extends BaseTradingState {
     result.analysis.fast.indicators.volumeActivePct = liquidity.fast.activePct;
     result.liquidity = liquidity;
 
-    if (!liquidity.healthy) {
+    // Normal production behavior: unhealthy liquidity is a hard entry veto.
+    // SAMPLE_10 PAPER trial behavior: keep measuring/logging liquidity, but do not
+    // veto an otherwise eligible simulated entry. This lets us collect execution
+    // samples while preserving all live gates, abnormal-market protection and
+    // loss/risk controls. Never applies when TRADING_MODE=live.
+    if (!liquidity.healthy && !trial) {
       result.entryEligible = false;
       result.tradeQuality = Math.min(Number(result.tradeQuality || 0), 35);
+    }
+    if (!liquidity.healthy && trial) {
+      result.liquidity.paperTrialObserveOnly = true;
     }
     return result;
   }
@@ -56,7 +64,8 @@ export class TradingState extends BaseTradingState {
     const s = await super.runCycle(manual);
     let changed = false;
 
-    const liquidityBlocked = s.signal?.action === "HOLD" &&
+    const trial = paperTrialEnabled(this.env);
+    const liquidityBlocked = !trial && s.signal?.action === "HOLD" &&
       s.signal?.deterministicAction === "BUY" &&
       s.signal?.reason !== "WAIT_NEXT_CLOSED_CANDLE" &&
       s.signal?.indicators?.liquidityHealthy === false;
@@ -104,11 +113,12 @@ export default {
         brokerCredentialsConfigured: Boolean(env.TOKOCRYPTO_API_KEY) && Boolean(env.TOKOCRYPTO_API_SECRET),
         liveStage: env.BROKER_LIVE_STAGE || "LOCKED",
         liveExecutionEnabled: env.ENABLE_LIVE_EXECUTION === "YES_I_ACCEPT_RISK",
-        liquidityGuard: "ACTIVE",
+        liquidityGuard: trial ? "OBSERVE_ONLY_PAPER_SAMPLE_10" : "ACTIVE",
         paperTrial: trial ? {
           mode: "SAMPLE_10",
           minSignalConfidence: Number(env.PAPER_TRIAL_MIN_SIGNAL_CONFIDENCE || 60),
           minLiquidityActiveRatio: Number(env.PAPER_TRIAL_MIN_ACTIVE_RATIO || 0.30),
+          liquidityVeto: false,
           aiValidation: String(env.PAPER_TRIAL_AI_VALIDATION || "false") === "true",
         } : null,
         decisionLogDedup: "ACTIVE",
