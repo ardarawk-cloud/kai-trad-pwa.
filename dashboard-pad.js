@@ -45,7 +45,7 @@ function installDashboardPad() {
 
   let active = 0;
 
-  const apply = () => {
+  const apply = ({ scrollToPad = false } = {}) => {
     const managed = collectManagedPanels();
     managed.forEach((el) => {
       const show = active > 0 && PANEL_GROUPS[active]?.some((selector) => queryAllSafe(selector).includes(el));
@@ -54,7 +54,13 @@ function installDashboardPad() {
     hero.classList.remove("pad-hidden");
     controls.classList.toggle("pad-hidden", active > 0);
     wrap.querySelectorAll("button[data-pad]").forEach((btn) => btn.classList.toggle("active", Number(btn.dataset.pad) === active));
-    if (active > 0) requestAnimationFrame(() => wrap.scrollIntoView({ block: "start", behavior: "smooth" }));
+
+    // Only move the viewport after an explicit panel-button tap. Live dashboard
+    // updates mutate the DOM frequently; those updates must never hijack the
+    // user's manual scroll position.
+    if (scrollToPad && active > 0) {
+      requestAnimationFrame(() => wrap.scrollIntoView({ block: "start", behavior: "smooth" }));
+    }
   };
 
   wrap.addEventListener("click", (event) => {
@@ -62,9 +68,11 @@ function installDashboardPad() {
     if (!btn) return;
     const next = Number(btn.dataset.pad);
     active = active === next ? 0 : next;
-    apply();
+    apply({ scrollToPad: active > 0 });
   });
 
+  // Re-apply panel visibility when asynchronous cards are inserted, but preserve
+  // the current viewport so the page remains freely scrollable while data refreshes.
   const observer = new MutationObserver(() => apply());
   observer.observe(document.querySelector("main.shell") || document.body, { childList: true, subtree: true });
   apply();
