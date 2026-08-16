@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "kai-trad-pwa",
-  "main": "./worker-v1105.js",
+  "main": "./worker-v1110.js",
   "compatibility_date": "2026-08-10",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -24,10 +24,19 @@
     "MAX_POSITION_PCT": "0.20",
     "MAX_DAILY_LOSS_PCT": "0.03",
     "MIN_SIGNAL_CONFIDENCE": "70",
+
+    // Legacy internal switch retained so the existing PAPER-only liquidity
+    // observe path remains active while the larger evidence program runs.
     "PAPER_TRIAL_MODE": "SAMPLE_10",
     "PAPER_TRIAL_MIN_SIGNAL_CONFIDENCE": "60",
     "PAPER_TRIAL_MIN_ACTIVE_RATIO": "0.30",
     "PAPER_TRIAL_AI_VALIDATION": "false",
+
+    "PAPER_EVIDENCE_MIN_CLOSED": "100",
+    "PAPER_EVIDENCE_TARGET_CLOSED": "200",
+    "PAPER_FEE_RATE": "0.001",
+    "KAI_SANBAN_LIVE_GATE": "LOCKED",
+
     "PRIMARY_BROKER": "indodax",
     "INDODAX_API_BASE_URL": "https://indodax.com",
     "TOKOCRYPTO_API_BASE_URL": "https://www.tokocrypto.com",
