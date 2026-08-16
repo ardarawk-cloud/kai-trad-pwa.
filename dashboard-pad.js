@@ -1,5 +1,5 @@
 const PANEL_GROUPS = {
-  1: [".metrics-grid", ".goal-grid", ".performance-card"],
+  1: [".metrics-grid", ".goal-grid", ".performance-card", "#kaiSanbanEvidenceCard"],
   2: [".regime-card", ".scanner-card", ".split-grid"],
   3: ["#validationLabCard"],
   4: [".safety-card", ".broker-card", "section.card:has(#toggleSettings)"],
