@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node build.mjs",
     "dev": "npm run build && wrangler dev",
-    "test": "node --test engine.test.mjs indodax.test.mjs qc-v192.test.mjs perf-v193.test.mjs backtest-v110.test.mjs indodax-history-v110.test.mjs diagnostics-v1101.test.mjs calibration-v1102.test.mjs funnel-v1103.test.mjs volume-audit-v1104.test.mjs volume-reliability-v1105.test.mjs evidence-v1110.test.mjs build-integrity.test.mjs",
+    "test": "node --test engine.test.mjs indodax.test.mjs qc-v192.test.mjs perf-v193.test.mjs backtest-v110.test.mjs indodax-history-v110.test.mjs diagnostics-v1101.test.mjs calibration-v1102.test.mjs funnel-v1103.test.mjs volume-audit-v1104.test.mjs volume-reliability-v1105.test.mjs evidence-v1110.test.mjs quote-integrity-v1111.test.mjs build-integrity.test.mjs",
     "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {

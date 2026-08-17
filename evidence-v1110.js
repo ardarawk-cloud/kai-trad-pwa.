@@ -1,6 +1,7 @@
 const round = (n, d = 8) => Number(Number(n || 0).toFixed(d));
 
 export const EVIDENCE_COST_MODEL = "V2_FEE_BIDASK";
+export const EVIDENCE_QUOTE_INTEGRITY = "VERIFIED_FRESH";
 
 export function buildEvidenceStats({
   trades = [],
@@ -17,6 +18,7 @@ export function buildEvidenceStats({
   const closed = allClosed.filter((t) =>
     t?.evidenceEligible === true &&
     t?.costModelVersion === EVIDENCE_COST_MODEL &&
+    t?.quoteIntegrity === EVIDENCE_QUOTE_INTEGRITY &&
     Number.isFinite(Number(t.entryNotional)) && Number(t.entryNotional) > 0
   );
 
@@ -80,6 +82,7 @@ export function buildEvidenceStats({
     feeRatePerSidePct: round(Number(feeRatePerSide || 0) * 100, 4),
     baselineRoundTripFeePct: round(Number(feeRatePerSide || 0) * 200, 4),
     costModelVersion: EVIDENCE_COST_MODEL,
+    quoteIntegrityRequired: EVIDENCE_QUOTE_INTEGRITY,
     spreadModel: "INDODAX_LIVE_BID_ASK",
     costsIncluded: ["ENTRY_FEE", "EXIT_FEE", "ENTRY_HALF_SPREAD", "EXIT_HALF_SPREAD"],
     positiveEdge,
@@ -87,7 +90,7 @@ export function buildEvidenceStats({
     goLive: false,
     ownerApprovalRequired: true,
     note: closed.length < minN
-      ? `Collect ${minN}-${targetN} cost-modeled PAPER closed trades before any live-money review.`
+      ? `Collect ${minN}-${targetN} fresh-quote, cost-modeled PAPER closed trades before any live-money review.`
       : "Evidence threshold reached. LIVE remains locked pending owner review; no automatic unlock.",
   };
 }
