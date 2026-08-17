@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "kai-trad-pwa",
-  "main": "./worker-v1110.js",
+  "main": "./worker-v1111.js",
   "compatibility_date": "2026-08-10",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -35,6 +35,7 @@
     "PAPER_EVIDENCE_MIN_CLOSED": "100",
     "PAPER_EVIDENCE_TARGET_CLOSED": "200",
     "PAPER_FEE_RATE": "0.001",
+    "PAPER_EVIDENCE_MAX_QUOTE_AGE_MS": "10000",
     "KAI_SANBAN_LIVE_GATE": "LOCKED",
 
     "PRIMARY_BROKER": "indodax",
