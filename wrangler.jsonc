@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "kai-trad-pwa",
-  "main": "./worker-v1112.js",
+  "main": "./worker-v1113.js",
   "compatibility_date": "2026-08-10",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -36,6 +36,11 @@
     "PAPER_EVIDENCE_TARGET_CLOSED": "200",
     "PAPER_FEE_RATE": "0.001",
     "PAPER_EVIDENCE_MAX_QUOTE_AGE_MS": "10000",
+    "PAPER_PROFIT_LOCK_ACTIVATION_PCT": "0.02",
+    "PAPER_PROFIT_LOCK_MIN_NET_PCT": "0.0025",
+    "PAPER_PROFIT_LOCK_SHARE": "0.50",
+    "PAPER_PROFIT_LOCK_EXIT_SPREAD_BUFFER_PCT": "0.0005",
+    "PAPER_PROFIT_LOCK_MIN_GAP_PCT": "0.0025",
     "KAI_SANBAN_LIVE_GATE": "LOCKED",
 
     "PRIMARY_BROKER": "indodax",
