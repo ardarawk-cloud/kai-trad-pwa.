@@ -39,12 +39,13 @@ export class TradingState extends BaseTradingState {
       markMigratedPositionOutOfEvidence(s);
       s.position = applyFeeAwareProfitLock(s.position, profitLockConfig(this.env));
     }
+    const lockCfg = profitLockConfig(this.env);
     s.riskPolicy = {
       version: PROFIT_LOCK_POLICY,
       mode: "PAPER_EVIDENCE",
-      activationPct: profitLockConfig(this.env).activationPct,
-      minNetProfitPct: profitLockConfig(this.env).minNetProfitPct,
-      lockShare: profitLockConfig(this.env).lockShare,
+      activationPct: lockCfg.activationPct,
+      minNetProfitPct: lockCfg.minNetProfitPct,
+      lockShare: lockCfg.lockShare,
       liveGate: "LOCKED",
     };
     return s;
@@ -53,7 +54,7 @@ export class TradingState extends BaseTradingState {
   async executeBuy(s, analysis, marketPrice, symbol = s.signal?.symbol || s.config.symbol) {
     const result = await super.executeBuy(s, analysis, marketPrice, symbol);
     if (result.mode === "live" || !result.position) return result;
-    const p = result.position;
+    let p = result.position;
     p.riskPolicyVersion = PROFIT_LOCK_POLICY;
     p.profitLockPolicyAttachedAt = new Date().toISOString();
     p = applyFeeAwareProfitLock(p, profitLockConfig(this.env));
