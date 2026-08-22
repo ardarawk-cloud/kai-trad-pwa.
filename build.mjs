@@ -9,6 +9,7 @@ const staticFiles = [
   "calibration-ui-v1102.js",
   "volume-audit-ui-v1104.js",
   "volume-reliability-ui-v1105.js",
+  "release-label-v1112.js",
   "app.css",
   "sw.js",
   "icon.svg",
