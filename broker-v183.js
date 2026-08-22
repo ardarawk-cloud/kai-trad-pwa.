@@ -1,5 +1,6 @@
 const $b = (id) => document.getElementById(id);
 let brokerPollTimer = null;
+const DEFAULT_UI_VERSION = "1.11.2";
 
 function brokerAuthHeaders() {
   const token = localStorage.getItem("kaiTradAdminToken") || "";
@@ -71,11 +72,17 @@ function installMobilePerformanceMode() {
   document.head.appendChild(style);
 }
 
-function applyReleaseLabel() {
+function normalizeVersion(version) {
+  const clean = String(version || DEFAULT_UI_VERSION).trim().replace(/^v/i, "");
+  return clean || DEFAULT_UI_VERSION;
+}
+
+function applyReleaseLabel(version = DEFAULT_UI_VERSION) {
+  const v = normalizeVersion(version);
   const eyebrow = document.querySelector(".broker-card .eyebrow");
-  if (eyebrow) eyebrow.textContent = "BROKER CONNECTOR v1.10.5";
+  if (eyebrow) eyebrow.textContent = `BROKER CONNECTOR v${v}`;
   const footer = document.querySelector("footer span");
-  if (footer) footer.textContent = "KAI TRAD v1.10.5 • Historical Volume Reliability Audit • PAPER Only";
+  if (footer) footer.textContent = `KAI TRAD v${v} • KAI SANBAN Evidence Gate • Fee-Aware Profit Lock • PAPER Only`;
 }
 
 function applyIndodaxPrimary(s) {
@@ -128,7 +135,9 @@ function applyIndodaxPrimary(s) {
 async function refreshBroker() {
   if (document.visibilityState === "hidden") return;
   try {
-    applyIndodaxPrimary(await brokerState());
+    const s = await brokerState();
+    applyReleaseLabel(s?.version);
+    applyIndodaxPrimary(s);
   } catch {}
 }
 
@@ -156,6 +165,7 @@ function installIndodaxCheck() {
       });
       await refreshBroker();
       const s = await brokerState();
+      applyReleaseLabel(s?.version);
       const indo = s?.broker?.indodaxCheck || {};
       if (indo.reachable && indo.symbolSupported !== false) brokerToast("Indodax API + pair ONLINE");
       else if (indo.reachable) brokerToast("Indodax API ONLINE • pair perlu dicek");
@@ -178,8 +188,9 @@ window.addEventListener("load", () => {
     .then(() => import("./validation-v110.js"))
     .then(() => import("./volume-audit-ui-v1104.js"))
     .then(() => import("./volume-reliability-ui-v1105.js"))
+    .then(() => import("./release-label-v1112.js"))
     .catch(() => {})
-    .finally(() => applyReleaseLabel());
+    .finally(() => window.KAITradReleaseLabel?.refresh?.());
 });
 
 document.addEventListener("visibilitychange", () => {
