@@ -1,4 +1,4 @@
-const FALLBACK_VERSION = "1.11.2";
+const FALLBACK_VERSION = "1.11.3";
 let currentVersion = FALLBACK_VERSION;
 let versionObserver = null;
 let versionPoll = null;
@@ -16,7 +16,7 @@ function normalizeVersion(version) {
 function expectedLabels() {
   return {
     broker: `BROKER CONNECTOR v${currentVersion}`,
-    footer: `KAI TRAD v${currentVersion} • KAI SANBAN Evidence Gate • Fee-Aware Profit Lock • PAPER Only`,
+    footer: `KAI TRAD v${currentVersion} • KAI SANBAN Evidence Gate • Safety + Cost Guard • PAPER Only`,
   };
 }
 
