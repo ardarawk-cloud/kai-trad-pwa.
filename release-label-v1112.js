@@ -1,4 +1,4 @@
-const FALLBACK_VERSION = "1.11.3";
+const FALLBACK_VERSION = "1.11.4";
 let currentVersion = FALLBACK_VERSION;
 let versionObserver = null;
 let versionPoll = null;
