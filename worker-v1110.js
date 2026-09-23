@@ -1,6 +1,6 @@
 import baseWorker, { TradingState as BaseTradingState } from "./worker-v1105.js";
 import { computeTradePlan } from "./engine.js";
-import { fetchIndodaxPairs, findIndodaxPair } from "./indodax.js";
+import { fetchIndodaxTickerQuote } from "./indodax.js";
 import { buildEvidenceStats, EVIDENCE_COST_MODEL } from "./evidence-v1110.js";
 
 const APP_VERSION = "1.11.0";
@@ -44,30 +44,7 @@ function fallbackQuote(price, error = null) {
 async function fetchIndodaxQuote(baseUrl, symbol) {
   const url = new URL(baseUrl);
   if (!url.hostname.toLowerCase().endsWith("indodax.com")) return null;
-  const pairs = await fetchIndodaxPairs(baseUrl);
-  const pair = findIndodaxPair(pairs, symbol);
-  if (!pair) throw new Error(`Indodax pair unavailable: ${symbol}`);
-  const res = await fetch(new URL(`/api/ticker/${pair.id}`, baseUrl), {
-    headers: { Accept: "application/json", "User-Agent": "KAI-TRAD/1.11.0" },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`Indodax ticker HTTP ${res.status}`);
-  const last = Number(data?.ticker?.last || 0);
-  const bid = Number(data?.ticker?.buy || 0);
-  const ask = Number(data?.ticker?.sell || 0);
-  if (!(last > 0)) throw new Error("Indodax ticker last unavailable");
-  const validSpread = bid > 0 && ask > 0 && ask >= bid;
-  const mid = validSpread ? (bid + ask) / 2 : last;
-  return {
-    last,
-    bid: validSpread ? bid : last,
-    ask: validSpread ? ask : last,
-    mid,
-    spreadPct: validSpread && mid > 0 ? ((ask - bid) / mid) * 100 : 0,
-    spreadModeled: validSpread,
-    source: validSpread ? "INDODAX_LIVE_BID_ASK" : "INDODAX_LAST_ONLY",
-    pairId: pair.id,
-  };
+  return fetchIndodaxTickerQuote(baseUrl, symbol);
 }
 
 export class TradingState extends BaseTradingState {
