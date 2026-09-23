@@ -30,6 +30,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Verify anti-429 worker entry
+        run: grep -q 'worker-v1116.js' wrangler.jsonc
+
       - name: Build PWA
         run: npm run build
 
