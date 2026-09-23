@@ -1,8 +1,43 @@
+import { parseRetryAfterMs, retryDelayMs } from "./rate-limit-v1115.js";
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const INDODAX_MIN_REQUEST_GAP_MS = 250;
+const INDODAX_MAX_429_RETRIES = 3;
+let indodaxRequestGate = Promise.resolve();
+let lastIndodaxRequestAt = 0;
+
+async function pacedFetch(url, init = {}) {
+  const previous = indodaxRequestGate;
+  let release;
+  indodaxRequestGate = new Promise((resolve) => { release = resolve; });
+  await previous;
+  try {
+    const waitMs = Math.max(0, INDODAX_MIN_REQUEST_GAP_MS - (Date.now() - lastIndodaxRequestAt));
+    if (waitMs > 0) await sleep(waitMs);
+    const res = await fetch(url, { ...init, headers: { Accept: "application/json", ...(init.headers || {}) } });
+    lastIndodaxRequestAt = Date.now();
+    return res;
+  } finally {
+    release();
+  }
+}
+
 async function jsonFetch(url, init = {}) {
-  const res = await fetch(url, { ...init, headers: { Accept: "application/json", ...(init.headers || {}) } });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`Indodax HTTP ${res.status}`);
-  return data;
+  for (let attempt = 0; attempt <= INDODAX_MAX_429_RETRIES; attempt += 1) {
+    const res = await pacedFetch(url, init);
+    if (res.ok) return res.json().catch(() => ({}));
+
+    if (res.status === 429 && attempt < INDODAX_MAX_429_RETRIES) {
+      const retryAfterMs = parseRetryAfterMs(res.headers.get("retry-after"));
+      await sleep(retryDelayMs(attempt, retryAfterMs));
+      continue;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    const detail = String(data?.error || data?.message || "").trim();
+    throw new Error(`Indodax HTTP ${res.status}${detail ? `: ${detail.slice(0, 120)}` : ""}`);
+  }
+  throw new Error("Indodax HTTP 429");
 }
 
 const pairCache = new Map();
@@ -130,10 +165,28 @@ export async function fetchIndodaxKlines(baseUrl = "https://indodax.com", symbol
   return candles;
 }
 
-export async function fetchIndodaxTickerPrice(baseUrl = "https://indodax.com", symbol = "BTCUSDT") {
+export async function fetchIndodaxTickerQuote(baseUrl = "https://indodax.com", symbol = "BTCUSDT") {
   const pair = await resolveIndodaxPair(baseUrl, symbol);
-  const data = await jsonFetch(new URL(`/api/ticker/${pair.id}`, baseUrl), { headers: { "User-Agent": "KAI-TRAD/1.9.1" } });
-  return num(data?.ticker?.last, "ticker last");
+  const data = await jsonFetch(new URL(`/api/ticker/${pair.id}`, baseUrl), { headers: { "User-Agent": "KAI-TRAD/1.11.5" } });
+  const last = num(data?.ticker?.last, "ticker last");
+  const bid = Number(data?.ticker?.buy || 0);
+  const ask = Number(data?.ticker?.sell || 0);
+  const validSpread = bid > 0 && ask > 0 && ask >= bid;
+  const mid = validSpread ? (bid + ask) / 2 : last;
+  return {
+    last,
+    bid: validSpread ? bid : last,
+    ask: validSpread ? ask : last,
+    mid,
+    spreadPct: validSpread && mid > 0 ? ((ask - bid) / mid) * 100 : 0,
+    spreadModeled: validSpread,
+    source: validSpread ? "INDODAX_LIVE_BID_ASK" : "INDODAX_LAST_ONLY",
+    pairId: pair.id,
+  };
+}
+
+export async function fetchIndodaxTickerPrice(baseUrl = "https://indodax.com", symbol = "BTCUSDT") {
+  return (await fetchIndodaxTickerQuote(baseUrl, symbol)).last;
 }
 
 export async function indodaxPublicPreflight({ baseUrl = "https://indodax.com", symbol = "BTCUSDT" } = {}) {
