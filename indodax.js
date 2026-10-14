@@ -46,6 +46,15 @@ export function findIndodaxPair(pairs, symbol) {
   return pairs.find((p) => normalizeIndodaxPairSymbol(p?.symbol) === target) || null;
 }
 
+export function filterSupportedIndodaxSymbols(pairs, symbols = []) {
+  const requested = [...new Set((Array.isArray(symbols) ? symbols : [])
+    .map((x) => normalizeIndodaxPairSymbol(x))
+    .filter(Boolean))];
+  const supported = requested.filter((symbol) => Boolean(findIndodaxPair(pairs, symbol)));
+  const unsupported = requested.filter((symbol) => !supported.includes(symbol));
+  return { supported, unsupported, requested };
+}
+
 export function getIndodaxTimeframeSpec(interval) {
   const key = String(interval || "").trim().toLowerCase();
   const specs = {
