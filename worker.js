@@ -25,7 +25,7 @@ import {
   tokocryptoPublicPreflight,
   waitForTokocryptoFill,
 } from "./tokocrypto.js";
-import { indodaxPublicPreflight } from "./indodax.js";
+import { indodaxPublicPreflight, fetchIndodaxPairs, filterSupportedIndodaxSymbols } from "./indodax.js";
 import { selectScannerBatch, SCANNER_SUBREQUEST_POLICY } from "./scanner-budget-v1116.js";
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -495,7 +495,9 @@ export class TradingState {
     let s = await this.state();
     const baseUrl = this.env.MARKET_DATA_BASE_URL || "https://data-api.binance.vision";
     const tradeBaseUrl = this.env.TRADE_BASE_URL || "https://api.binance.com";
-    const scanSymbols = [...new Set((s.config.scannerSymbols || []).slice(0, 5))];
+    const configuredScanSymbols = [...new Set((s.config.scannerSymbols || []).slice(0, 5))];
+    let scanSymbols = [...configuredScanSymbols];
+    let unsupportedScannerSymbols = [];
     if (s.engine.cooldownUntil && Date.now() >= Date.parse(s.engine.cooldownUntil)) {
       s.engine.cooldownUntil = null;
       if (s.engine.breaker?.reason === "LOSS_STREAK") s.engine.breaker = { active: false, reason: null, until: null };
@@ -504,6 +506,20 @@ export class TradingState {
     let selected;
     let ranked = [];
     const scanErrors = [];
+
+    // The configured watchlist may contain symbols that Indodax does not list
+    // as exact USDT markets. Filter them out before rotating the scan batch.
+    // Never alias to IDR because that would corrupt price/notional semantics.
+    if (!s.position && new URL(baseUrl).hostname.toLowerCase().endsWith("indodax.com")) {
+      const pairs = await fetchIndodaxPairs(baseUrl);
+      const capability = filterSupportedIndodaxSymbols(pairs, configuredScanSymbols);
+      scanSymbols = capability.supported;
+      unsupportedScannerSymbols = capability.unsupported;
+      if (!scanSymbols.length) {
+        throw new Error(`No configured Indodax scanner markets are available: ${configuredScanSymbols.join(",")}`);
+      }
+    }
+
     let scanBatch = {
       symbols: s.position ? [s.position.symbol] : [],
       nextCursor: Number(s.scanner?.cursor || 0),
@@ -563,6 +579,9 @@ export class TradingState {
       policy: SCANNER_SUBREQUEST_POLICY,
       batchSize: scanBatch.symbols.length,
       totalUniverse: scanBatch.total,
+      configuredUniverse: configuredScanSymbols.length,
+      availableUniverse: scanSymbols.length,
+      unsupportedSymbols: [...unsupportedScannerSymbols],
       scannedThisCycle: [...scanBatch.symbols],
       symbols: ranked.map((x, index) => ({
         rank: index + 1,
@@ -606,7 +625,7 @@ export class TradingState {
     const blocked = dailyLossBlocked(s);
     const lastDecision = s.engine.lastDecisionCandles?.[symbol] || s.engine.lastDecisionCandle;
     let decided = "HOLD";
-    let reason = s.position ? "POSITION_MONITORING" : "NO_QUALIFIED_SETUP_ACROSS_5_MARKETS";
+    let reason = s.position ? "POSITION_MONITORING" : "NO_QUALIFIED_SETUP_THIS_SCAN_BATCH";
     let ai = null;
 
     if (s.position && riskExit) {
