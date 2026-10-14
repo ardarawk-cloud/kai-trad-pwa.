@@ -1,8 +1,5 @@
-import { parseRetryAfterMs, retryDelayMs } from "./rate-limit-v1115.js";
-
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const INDODAX_MIN_REQUEST_GAP_MS = 250;
-const INDODAX_MAX_429_RETRIES = 3;
 let indodaxRequestGate = Promise.resolve();
 let lastIndodaxRequestAt = 0;
 
@@ -23,24 +20,20 @@ async function pacedFetch(url, init = {}) {
 }
 
 async function jsonFetch(url, init = {}) {
-  for (let attempt = 0; attempt <= INDODAX_MAX_429_RETRIES; attempt += 1) {
-    const res = await pacedFetch(url, init);
-    if (res.ok) return res.json().catch(() => ({}));
+  const res = await pacedFetch(url, init);
+  if (res.ok) return res.json().catch(() => ({}));
 
-    if (res.status === 429 && attempt < INDODAX_MAX_429_RETRIES) {
-      const retryAfterMs = parseRetryAfterMs(res.headers.get("retry-after"));
-      await sleep(retryDelayMs(attempt, retryAfterMs));
-      continue;
-    }
+  const data = await res.json().catch(() => ({}));
+  const detail = String(data?.error || data?.message || "").trim();
 
-    const data = await res.json().catch(() => ({}));
-    const detail = String(data?.error || data?.message || "").trim();
-    throw new Error(`Indodax HTTP ${res.status}${detail ? `: ${detail.slice(0, 120)}` : ""}`);
-  }
-  throw new Error("Indodax HTTP 429");
+  // 429 is deliberately not retried inside the same Worker invocation.
+  // The Durable Object alarm layer owns backoff/recovery so one scan cannot
+  // multiply subrequests until Cloudflare's invocation limit is exhausted.
+  throw new Error(`Indodax HTTP ${res.status}${detail ? `: ${detail.slice(0, 120)}` : ""}`);
 }
 
 const pairCache = new Map();
+const pairInflight = new Map();
 const MINUTE_MS = 60_000;
 
 export function normalizeIndodaxPairSymbol(symbol) {
@@ -131,10 +124,26 @@ export async function fetchIndodaxPairs(baseUrl = "https://indodax.com", maxAgeM
   const origin = new URL(baseUrl).origin;
   const cached = pairCache.get(origin);
   if (cached && Date.now() - cached.at < maxAgeMs) return cached.rows;
-  const rows = await jsonFetch(new URL("/api/pairs", origin), { headers: { "User-Agent": "KAI-TRAD/1.9.1" } });
-  if (!Array.isArray(rows) || !rows.length) throw new Error("Indodax pair list unavailable");
-  pairCache.set(origin, { at: Date.now(), rows });
-  return rows;
+
+  // scanSymbol requests main candles, fast candles and ticker together.
+  // Without an in-flight lock, all three used to request /api/pairs before
+  // the cache was populated. Share the first request instead.
+  const inflight = pairInflight.get(origin);
+  if (inflight) return inflight;
+
+  const promise = (async () => {
+    const rows = await jsonFetch(new URL("/api/pairs", origin), { headers: { "User-Agent": "KAI-TRAD/1.11.6" } });
+    if (!Array.isArray(rows) || !rows.length) throw new Error("Indodax pair list unavailable");
+    pairCache.set(origin, { at: Date.now(), rows });
+    return rows;
+  })();
+
+  pairInflight.set(origin, promise);
+  try {
+    return await promise;
+  } finally {
+    if (pairInflight.get(origin) === promise) pairInflight.delete(origin);
+  }
 }
 
 async function resolveIndodaxPair(baseUrl, symbol) {
@@ -157,7 +166,7 @@ export async function fetchIndodaxKlines(baseUrl = "https://indodax.com", symbol
   url.searchParams.set("tf", spec.tf);
   url.searchParams.set("symbol", pair.symbol);
 
-  const rows = await jsonFetch(url, { headers: { "User-Agent": "KAI-TRAD/1.9.1" } });
+  const rows = await jsonFetch(url, { headers: { "User-Agent": "KAI-TRAD/1.11.6" } });
   let candles = normalizeIndodaxHistoryRows(rows, spec.sourceCandleMs);
   if (spec.aggregate > 1) candles = aggregateIndodaxCandles(candles, spec.candleMs, spec.aggregate);
   candles = candles.filter((c) => c.closeTime <= Date.now()).slice(-safeLimit);
@@ -167,7 +176,7 @@ export async function fetchIndodaxKlines(baseUrl = "https://indodax.com", symbol
 
 export async function fetchIndodaxTickerQuote(baseUrl = "https://indodax.com", symbol = "BTCUSDT") {
   const pair = await resolveIndodaxPair(baseUrl, symbol);
-  const data = await jsonFetch(new URL(`/api/ticker/${pair.id}`, baseUrl), { headers: { "User-Agent": "KAI-TRAD/1.11.5" } });
+  const data = await jsonFetch(new URL(`/api/ticker/${pair.id}`, baseUrl), { headers: { "User-Agent": "KAI-TRAD/1.11.6" } });
   const last = num(data?.ticker?.last, "ticker last");
   const bid = Number(data?.ticker?.buy || 0);
   const ask = Number(data?.ticker?.sell || 0);
@@ -192,7 +201,7 @@ export async function fetchIndodaxTickerPrice(baseUrl = "https://indodax.com", s
 export async function indodaxPublicPreflight({ baseUrl = "https://indodax.com", symbol = "BTCUSDT" } = {}) {
   const started = Date.now();
   const [time, pairs] = await Promise.all([
-    jsonFetch(new URL("/api/server_time", baseUrl), { headers: { "User-Agent": "KAI-TRAD/1.9.1" } }),
+    jsonFetch(new URL("/api/server_time", baseUrl), { headers: { "User-Agent": "KAI-TRAD/1.11.6" } }),
     fetchIndodaxPairs(baseUrl, 0),
   ]);
   const pair = findIndodaxPair(pairs, symbol);
