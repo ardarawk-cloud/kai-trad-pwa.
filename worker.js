@@ -26,6 +26,7 @@ import {
   waitForTokocryptoFill,
 } from "./tokocrypto.js";
 import { indodaxPublicPreflight } from "./indodax.js";
+import { selectScannerBatch, SCANNER_SUBREQUEST_POLICY } from "./scanner-budget-v1116.js";
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -223,6 +224,7 @@ export class TradingState {
     }
     s.engine.lastDecisionCandles ||= {};
     s.scanner ||= { updatedAt: null, symbols: [], bestSymbol: s.config.symbol, errors: [] };
+    s.scanner.cursor = Number.isFinite(Number(s.scanner.cursor)) ? Number(s.scanner.cursor) : 0;
     s.market ||= { symbol: s.config.symbol, price: null, updatedAt: null, chart: [] };
     s.decisionLog ||= [];
     s.broker ||= { primary: String(this.env.PRIMARY_BROKER || "tokocrypto").toLowerCase(), secondary: "indodax", lastCheck: null };
@@ -502,18 +504,37 @@ export class TradingState {
     let selected;
     let ranked = [];
     const scanErrors = [];
+    let scanBatch = {
+      symbols: s.position ? [s.position.symbol] : [],
+      nextCursor: Number(s.scanner?.cursor || 0),
+      total: scanSymbols.length,
+      startCursor: Number(s.scanner?.cursor || 0),
+    };
 
     if (s.position) {
       selected = await this.scanSymbol(baseUrl, s, s.position.symbol);
       ranked = [selected];
     } else {
-      const results = await Promise.allSettled(scanSymbols.map((symbol) => this.scanSymbol(baseUrl, s, symbol)));
+      scanBatch = selectScannerBatch(scanSymbols, s.scanner?.cursor || 0, 2);
       const successful = [];
-      results.forEach((result, i) => {
-        if (result.status === "fulfilled") successful.push(result.value);
-        else scanErrors.push({ symbol: scanSymbols[i], error: String(result.reason?.message || result.reason || "scan failed").slice(0, 120) });
-      });
-      if (!successful.length) throw new Error(`Multi-coin scan failed: ${scanErrors.map((x) => `${x.symbol} ${x.error}`).join(" | ")}`);
+
+      // Intentionally sequential: each symbol already needs main candles, fast candles
+      // and a ticker. Keeping only two fresh symbols per cycle bounds external
+      // subrequests and avoids Cloudflare's per-invocation subrequest ceiling.
+      for (const symbol of scanBatch.symbols) {
+        try {
+          successful.push(await this.scanSymbol(baseUrl, s, symbol));
+        } catch (error) {
+          scanErrors.push({
+            symbol,
+            error: String(error?.message || error || "scan failed").slice(0, 160),
+          });
+        }
+      }
+
+      if (!successful.length) {
+        throw new Error(`Multi-coin scan failed: ${scanErrors.map((x) => `${x.symbol} ${x.error}`).join(" | ")}`);
+      }
       ranked = rankScanCandidates(successful);
       selected = ranked[0];
     }
@@ -538,6 +559,11 @@ export class TradingState {
       updatedAt: nowIso(),
       bestSymbol: symbol,
       errors: scanErrors,
+      cursor: scanBatch.nextCursor,
+      policy: SCANNER_SUBREQUEST_POLICY,
+      batchSize: scanBatch.symbols.length,
+      totalUniverse: scanBatch.total,
+      scannedThisCycle: [...scanBatch.symbols],
       symbols: ranked.map((x, index) => ({
         rank: index + 1,
         symbol: x.symbol,
