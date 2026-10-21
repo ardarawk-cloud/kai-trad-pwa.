@@ -64,11 +64,22 @@ jobs:
         with:
           gradle-version: '9.5.0'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Android SDK 36
-        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Verify KAI SANBAN production domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'https://kai-sanban.nadmo.id/?native=android' android/app/src/main/java/com/ardacore/kaitrad/KaiTradActivity.java
+          grep -q 'FRONTEND_HOST = "kai-sanban.nadmo.id"' android/app/src/main/java/com/ardacore/kaitrad/KaiTradNavigationPolicy.java
+          grep -q 'android:host="kai-sanban.nadmo.id"' android/app/src/main/AndroidManifest.xml
 
       - name: Validate debug and release builds
         working-directory: android
