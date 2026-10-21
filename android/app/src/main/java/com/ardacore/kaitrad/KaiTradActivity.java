@@ -22,7 +22,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 public class KaiTradActivity extends Activity {
-    private static final String HOME_URL = "https://kai-trad-pwa.ardarawk.workers.dev/?native=android";
+    private static final String HOME_URL = "https://kai-sanban.nadmo.id/?native=android";
 
     private WebView webView;
     private LinearLayout errorPanel;
@@ -40,7 +40,8 @@ public class KaiTradActivity extends Activity {
     private String resolveInitialUrl(Intent intent) {
         Uri data = intent == null ? null : intent.getData();
         if (!KaiTradNavigationPolicy.isInternal(data)) return HOME_URL;
-        return data.buildUpon().appendQueryParameter("native", "android").build().toString();
+        Uri canonical = KaiTradNavigationPolicy.canonicalize(data);
+        return canonical.buildUpon().appendQueryParameter("native", "android").build().toString();
     }
 
     private void buildUi() {
@@ -106,7 +107,7 @@ public class KaiTradActivity extends Activity {
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setSupportMultipleWindows(false);
         settings.setSafeBrowsingEnabled(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " KAITradAndroid/0.1.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " KAITradAndroid/0.1.1");
 
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
@@ -140,21 +141,29 @@ public class KaiTradActivity extends Activity {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             Uri uri = request.getUrl();
-            if (KaiTradNavigationPolicy.isInternal(uri)) return false;
+            if (KaiTradNavigationPolicy.isLegacyInternal(uri)) {
+                view.loadUrl(KaiTradNavigationPolicy.canonicalize(uri).toString());
+                return true;
+            }
+            if (KaiTradNavigationPolicy.isCanonicalInternal(uri)) return false;
             return KaiTradNavigationPolicy.openExternal(KaiTradActivity.this, uri);
         }
 
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
             Uri uri = Uri.parse(url);
-            if (KaiTradNavigationPolicy.isInternal(uri)) return false;
+            if (KaiTradNavigationPolicy.isLegacyInternal(uri)) {
+                view.loadUrl(KaiTradNavigationPolicy.canonicalize(uri).toString());
+                return true;
+            }
+            if (KaiTradNavigationPolicy.isCanonicalInternal(uri)) return false;
             return KaiTradNavigationPolicy.openExternal(KaiTradActivity.this, uri);
         }
 
         @Override
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
             Uri uri = Uri.parse(url);
-            if (KaiTradNavigationPolicy.isInternal(uri)) lastInternalUrl = url;
+            if (KaiTradNavigationPolicy.isCanonicalInternal(uri)) lastInternalUrl = url;
             hideError();
         }
 
