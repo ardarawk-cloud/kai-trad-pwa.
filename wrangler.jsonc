@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "kai-trad-pwa",
-  "main": "./worker-v1119.js",
+  "main": "./worker-v1120.js",
   "compatibility_date": "2026-08-10",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -29,7 +29,7 @@
     // Legacy internal switch retained so the existing PAPER-only liquidity
     // observe path remains active while the larger evidence program runs.
     "PAPER_TRIAL_MODE": "SAMPLE_10",
-    "PAPER_TRIAL_MIN_SIGNAL_CONFIDENCE": "60",
+    "PAPER_TRIAL_MIN_SIGNAL_CONFIDENCE": "70",
     "PAPER_TRIAL_MIN_ACTIVE_RATIO": "0.30",
     "PAPER_TRIAL_AI_VALIDATION": "false",
 
