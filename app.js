@@ -10,6 +10,24 @@ const priceFmt = (n) => Number.isFinite(Number(n)) ? new Intl.NumberFormat("en-U
 const pct = (n) => Number.isFinite(Number(n)) ? `${Number(n).toFixed(2)}%` : "—";
 const timeWita = (v) => v ? new Date(v).toLocaleString("id-ID", { timeZone: "Asia/Makassar", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
 
+const humanReason = (value) => {
+  const key = String(value || "—");
+  const labels = {
+    NO_QUALIFIED_SETUP_THIS_SCAN_BATCH: "NO QUALIFIED SETUP",
+    WAIT_NEXT_CLOSED_CANDLE: "WAIT NEXT CANDLE",
+    POSITION_MONITORING: "POSITION MONITORING",
+    MULTI_TIMEFRAME_EXIT: "MULTI-TIMEFRAME EXIT",
+    LOSS_STREAK_BREAKER: "ENTRY BLOCKED • LOSS STREAK",
+    REGIME_FILTER_SIDEWAYS: "WAIT • SIDEWAYS FILTER",
+    REGIME_FILTER_BEARISH: "WAIT • BEARISH FILTER",
+    EXECUTION_COST_TOO_HIGH: "WAIT • COST TOO HIGH",
+    EXECUTION_COST_EXCEEDS_EDGE_BUDGET: "WAIT • COST > EDGE",
+    BEST_OF_5_REGIME_AI_CONFIRMED: "REGIME SIGNAL CONFIRMED",
+    REGIME_SIGNAL_CONFIRMED: "REGIME SIGNAL CONFIRMED",
+  };
+  return labels[key] || key.replaceAll("_", " ");
+};
+
 function token() { return localStorage.getItem("kaiTradAdminToken") || ""; }
 function authHeaders() { return token() ? { Authorization: `Bearer ${token()}` } : {}; }
 
@@ -177,7 +195,7 @@ function renderDecisions(decisions = []) {
     <div class="decision-row">
       <div><strong class="signal ${(d.action || "HOLD").toLowerCase()}">${d.action || "HOLD"}</strong><small>${timeWita(d.at)}</small></div>
       <div><strong>${d.symbol}</strong><small>${d.regime || "—"} • Q${d.tradeQuality ?? "—"}</small></div>
-      <div class="decision-reason">${String(d.reason || "—").replaceAll("_", " ")}<small>BUY ${d.buyConfidence ?? "—"}% • confidence ${d.confidence ?? "—"}%</small></div>
+      <div class="decision-reason">${humanReason(d.reason)}<small>BUY ${d.buyConfidence ?? "—"}% • confidence ${d.confidence ?? "—"}%</small></div>
       <div><strong class="${d.entryEligible ? "positive" : "negative"}">${d.entryEligible ? "ELIGIBLE" : "WAIT"}</strong><small>Entry gate</small></div>
     </div>`).join("");
 }
@@ -216,9 +234,12 @@ function renderPerformance(s) {
   setSigned($("perfExpectancy"), p.expectancyUsd || 0, p.closedTrades ? money(p.expectancyUsd || 0) : "—");
   $("perfAvg").textContent = p.closedTrades ? `${money(p.avgWinUsd || 0)} / ${money(p.avgLossUsd || 0)}` : "—";
   $("perfHold").textContent = p.avgHoldMinutes == null ? "—" : `${Number(p.avgHoldMinutes).toFixed(0)}m`;
-  const status = String(p.sampleStatus || "COLLECTING_DATA").replaceAll("_", " ");
+  const statusKey = String(p.sampleStatus || "COLLECTING_DATA");
+  const status = humanReason(statusKey);
+  const edgeFailed = /NOT_PROVEN|NEGATIVE|FAIL/.test(statusKey);
+  const edgeProven = /(^|_)EDGE_PROVEN($|_)|TEST_EDGE_PROVEN/.test(statusKey);
   $("sampleStatus").textContent = status;
-  $("sampleStatus").className = `badge ${p.closedTrades >= 30 ? "good" : "muted"}`;
+  $("sampleStatus").className = `badge ${edgeFailed ? "live" : edgeProven ? "good" : "muted"}`;
 }
 
 function renderBroker(s) {
@@ -226,7 +247,19 @@ function renderBroker(s) {
   const check = b.lastCheck || {};
   const ready = Boolean(b.liveExecutionReady);
   $("brokerPrimary").textContent = String(b.primary || "tokocrypto").toUpperCase();
-  $("brokerSecondary").textContent = `${String(b.secondary || "indodax").toUpperCase()} • ${b.indodaxStatus || "STANDBY"}`;
+  const secondaryName = String(b.secondary || "indodax").toUpperCase();
+  let secondaryStatus = "STANDBY";
+  if (secondaryName === "TOKOCRYPTO") {
+    const secondaryCheck = b.tokocryptoCheck || {};
+    if (secondaryCheck.checkedAt) {
+      secondaryStatus = secondaryCheck.reachable
+        ? "ONLINE"
+        : String(secondaryCheck.error || "").includes("403") ? "WAF BLOCKED" : "FAILED";
+    }
+  } else if (secondaryName === "INDODAX") {
+    secondaryStatus = b.indodaxStatus || "STANDBY";
+  }
+  $("brokerSecondary").textContent = `${secondaryName} • ${secondaryStatus}`;
   $("brokerKeys").textContent = b.credentialsConfigured ? "CONFIGURED" : "NOT CONFIGURED";
   $("brokerKeys").className = b.credentialsConfigured ? "positive" : "";
   $("brokerLiveStage").textContent = ready ? "READY" : String(b.liveStage || "LOCKED").replaceAll("_", " ");
@@ -250,9 +283,14 @@ function renderSafety(s) {
   const safety = s.safety || {};
   const breaker = safety.breaker || {};
   const active = Boolean(breaker.active || safety.dailyLossBlocked);
-  $("safetyBadge").textContent = active ? `HALTED • ${String(breaker.reason || "DAILY LOSS").replaceAll("_", " ")}` : "ARMED";
+  const maxLosses = Number(safety.maxConsecutiveLosses || 3);
+  const activeLosses = Number(safety.activeLossStreak ?? safety.consecutiveLosses ?? 0);
+  const closedLossRun = Number(safety.closedLossStreak ?? s.performance?.consecutiveLosses ?? activeLosses);
+  $("safetyBadge").textContent = active
+    ? `ENTRY BLOCKED • ${activeLosses}/${maxLosses}`
+    : "ENTRY ARMED";
   $("safetyBadge").className = `badge ${active ? "live" : "good"}`;
-  $("lossStreak").textContent = `${safety.consecutiveLosses || 0} / ${safety.maxConsecutiveLosses || 3}`;
+  $("lossStreak").textContent = `${closedLossRun} • block @${maxLosses}`;
   $("apiErrors").textContent = `${safety.consecutiveErrors || 0} / ${safety.maxExecutionErrors || 3}`;
   if (safety.cooldownUntil && Date.parse(safety.cooldownUntil) > Date.now()) {
     const mins = Math.max(1, Math.ceil((Date.parse(safety.cooldownUntil) - Date.now()) / 60000));
@@ -294,8 +332,9 @@ function render(s) {
   $("signalAction").textContent = action;
   $("signalAction").className = `signal ${action.toLowerCase()}`;
   $("confidence").textContent = s.signal ? `${s.signal.confidence}%` : "—";
-  $("engineState").textContent = s.engine.running ? "RUNNING" : "STOPPED";
-  $("engineState").className = s.engine.running ? "positive" : "";
+  const entryBlocked = Boolean(s.safety?.entryBlocked || s.safety?.breaker?.active || s.safety?.dailyLossBlocked);
+  $("engineState").textContent = s.engine.running ? (entryBlocked ? "SCANNING" : "RUNNING") : "STOPPED";
+  $("engineState").className = s.engine.running && !entryBlocked ? "positive" : "";
 
   $("equity").textContent = money(s.account.equity);
   const totalReturn = s.account.startingBalance ? ((s.account.equity / s.account.startingBalance) - 1) * 100 : 0;
@@ -340,7 +379,7 @@ function render(s) {
   $("volume").textContent = ind.volumeRatio == null ? "—" : `${ind.volumeRatio}×`;
   $("buyScore").textContent = s.signal ? `${s.signal.buyConfidence}%` : "—";
   $("exitScore").textContent = s.signal ? `${s.signal.exitConfidence}%` : "—";
-  $("signalReason").textContent = s.signal ? `${s.signal.reason}${s.signal.ai?.reason ? ` • AI: ${s.signal.ai.reason}` : ""}` : "Menunggu scan pertama.";
+  $("signalReason").textContent = s.signal ? `${humanReason(s.signal.reason)}${s.signal.ai?.reason ? ` • AI: ${s.signal.ai.reason}` : ""}` : "Menunggu scan pertama.";
   $("aiBadge").textContent = s.config.aiValidation ? "AI ON" : "AI OFF";
   $("aiBadge").className = `badge ${s.config.aiValidation ? "good" : "muted"}`;
 
@@ -410,7 +449,7 @@ $("brokerCheckBtn").addEventListener("click", async () => {
   try {
     const s = await api("/api/broker/check", { method: "POST", body: "{}" });
     render(s);
-    toast("Tokocrypto connector PASS");
+    toast("Indodax connector PASS");
   } catch (e) {
     toast(e.message);
     await loadState(true);
