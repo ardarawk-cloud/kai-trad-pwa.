@@ -18,6 +18,9 @@ const humanReason = (value) => {
     POSITION_MONITORING: "POSITION MONITORING",
     MULTI_TIMEFRAME_EXIT: "MULTI-TIMEFRAME EXIT",
     LOSS_STREAK_BREAKER: "ENTRY BLOCKED • LOSS STREAK",
+    LOSS_STREAK_RECOVERY_COOLDOWN: "RECOVERY COOLDOWN",
+    LOSS_STREAK_RECOVERY_GATE: "RECOVERY GATE • WAIT STRONG BULLISH",
+    LOSS_STREAK_PROBATION_READY: "PROBATION READY",
     REGIME_FILTER_SIDEWAYS: "WAIT • SIDEWAYS FILTER",
     REGIME_FILTER_BEARISH: "WAIT • BEARISH FILTER",
     EXECUTION_COST_TOO_HIGH: "WAIT • COST TOO HIGH",
@@ -170,16 +173,21 @@ function renderScanner(scanner = {}) {
 }
 
 
-function renderRegime(signal = null) {
+function renderRegime(signal = null, safety = {}) {
   const regime = signal?.regime || null;
   const label = regime?.regime || "WAITING";
   const cls = label === "BULLISH" ? "regime-bullish" : label === "BEARISH" ? "regime-bearish" : label === "SIDEWAYS" ? "regime-sideways" : "";
+  const recovery = safety?.recoveryGate || {};
+  const recoveryBlocking = Boolean(recovery.active && !recovery.allowProbation);
+  const effectiveOpen = Boolean(signal?.entryEligible && !recoveryBlocking);
   $("regimeLabel").textContent = label;
   $("regimeLabel").className = cls;
   $("regimeStrength").textContent = regime ? `${regime.trendStrength}%` : "—";
   $("qualityScore").textContent = signal ? `${signal.tradeQuality ?? "—"}%` : "—";
-  $("entryGate").textContent = signal ? (signal.entryEligible ? "OPEN" : "WAIT") : "—";
-  $("entryGate").className = signal ? (signal.entryEligible ? "gate-open" : "gate-closed") : "";
+  $("entryGate").textContent = signal
+    ? (recoveryBlocking ? "RECOVERY WAIT" : recovery.allowProbation ? "PROBATION" : effectiveOpen ? "OPEN" : "WAIT")
+    : "—";
+  $("entryGate").className = signal ? (effectiveOpen || recovery.allowProbation ? "gate-open" : "gate-closed") : "";
   $("regimeBadge").textContent = label;
   $("regimeBadge").className = `badge ${label === "BULLISH" ? "good" : label === "BEARISH" ? "live" : "muted"}`;
 }
@@ -282,24 +290,39 @@ function renderBroker(s) {
 function renderSafety(s) {
   const safety = s.safety || {};
   const breaker = safety.breaker || {};
-  const active = Boolean(breaker.active || safety.dailyLossBlocked);
-  const maxLosses = Number(safety.maxConsecutiveLosses || 3);
+  const recovery = safety.recoveryGate || {};
+  const active = Boolean(safety.entryBlocked || breaker.active || safety.dailyLossBlocked);
+  const maxLosses = Number(safety.maxConsecutiveLosses || recovery.threshold || 3);
   const activeLosses = Number(safety.activeLossStreak ?? safety.consecutiveLosses ?? 0);
   const closedLossRun = Number(safety.closedLossStreak ?? s.performance?.consecutiveLosses ?? activeLosses);
-  $("safetyBadge").textContent = active
-    ? `ENTRY BLOCKED • ${activeLosses}/${maxLosses}`
-    : "ENTRY ARMED";
-  $("safetyBadge").className = `badge ${active ? "live" : "good"}`;
-  $("lossStreak").textContent = `${closedLossRun} • block @${maxLosses}`;
+
+  if (recovery.active) {
+    if (recovery.phase === "COOLDOWN") $("safetyBadge").textContent = "RECOVERY COOLDOWN";
+    else if (recovery.allowProbation) $("safetyBadge").textContent = "PROBATION READY";
+    else $("safetyBadge").textContent = "RECOVERY GATE";
+  } else {
+    $("safetyBadge").textContent = active ? `ENTRY BLOCKED • ${activeLosses}/${maxLosses}` : "ENTRY ARMED";
+  }
+  $("safetyBadge").className = `badge ${active ? "live" : recovery.allowProbation ? "paper" : "good"}`;
+  $("lossStreak").textContent = `${closedLossRun} • recovery @${maxLosses}`;
   $("apiErrors").textContent = `${safety.consecutiveErrors || 0} / ${safety.maxExecutionErrors || 3}`;
-  if (safety.cooldownUntil && Date.parse(safety.cooldownUntil) > Date.now()) {
-    const mins = Math.max(1, Math.ceil((Date.parse(safety.cooldownUntil) - Date.now()) / 60000));
+
+  const cooldownUntil = recovery.active ? recovery.cooldownUntil : safety.cooldownUntil;
+  if (cooldownUntil && Date.parse(cooldownUntil) > Date.now()) {
+    const mins = Math.max(1, Math.ceil((Date.parse(cooldownUntil) - Date.now()) / 60000));
     $("cooldownState").textContent = `${mins}m`;
     $("cooldownState").className = "negative";
+  } else if (recovery.active && !recovery.allowProbation) {
+    $("cooldownState").textContent = "WAIT BULLISH";
+    $("cooldownState").className = "negative";
+  } else if (recovery.allowProbation) {
+    $("cooldownState").textContent = "PROBATION";
+    $("cooldownState").className = "positive";
   } else {
     $("cooldownState").textContent = "CLEAR";
     $("cooldownState").className = "positive";
   }
+
   $("liveLock").textContent = s.capabilities?.liveExecutionReady ? "READY" : "LOCKED";
   $("liveLock").className = s.capabilities?.liveExecutionReady ? "positive" : "";
 }
@@ -386,7 +409,7 @@ function render(s) {
   renderChart(s.market?.chart || []);
   renderTrades(s.trades || []);
   renderScanner(s.scanner || {});
-  renderRegime(s.signal || null);
+  renderRegime(s.signal || null, s.safety || {});
   renderDecisions(s.decisionLog || []);
   renderFinance(s);
   renderPerformance(s);
