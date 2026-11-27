@@ -30,8 +30,8 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Verify v1.11.9 worker entry
-        run: grep -q 'worker-v1120.js' wrangler.jsonc
+      - name: Verify v1.12.0 worker entry
+        run: grep -q 'worker-v1121.js' wrangler.jsonc
 
       - name: Build PWA
         run: npm run build
