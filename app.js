@@ -27,6 +27,20 @@ const humanReason = (value) => {
     EXECUTION_COST_EXCEEDS_EDGE_BUDGET: "WAIT • COST > EDGE",
     BEST_OF_5_REGIME_AI_CONFIRMED: "REGIME SIGNAL CONFIRMED",
     REGIME_SIGNAL_CONFIRMED: "REGIME SIGNAL CONFIRMED",
+    V2_NO_QUALIFIED_SETUP: "WAIT • NO V2 SETUP",
+    V2_WAIT_NEXT_CLOSED_CANDLE: "WAIT • NEXT CANDLE",
+    V2_BULLISH_ONLY: "WAIT • BULLISH ONLY",
+    V2_CONFIDENCE_TOO_LOW: "WAIT • CONFIDENCE < 80",
+    V2_QUALITY_TOO_LOW: "WAIT • QUALITY < 80",
+    V2_COST_GUARD_BLOCK: "WAIT • COST GUARD",
+    V2_BASE_ENTRY_NOT_ELIGIBLE: "WAIT • BASE GATE",
+    V2_BULLISH_COST_AWARE_ENTRY: "V2 SHADOW BUY",
+    V2_POSITION_MONITORING: "V2 POSITION MONITORING",
+    V2_STOP_LOSS: "V2 STOP LOSS",
+    V2_TRAILING_STOP: "V2 TRAILING STOP",
+    V2_TAKE_PROFIT: "V2 TAKE PROFIT",
+    V2_BEARISH_REGIME_EXIT: "V2 BEARISH EXIT",
+    V2_HIGH_CONFIDENCE_EXIT: "V2 SIGNAL EXIT",
   };
   return labels[key] || key.replaceAll("_", " ");
 };
@@ -250,6 +264,32 @@ function renderPerformance(s) {
   $("sampleStatus").className = `badge ${edgeFailed ? "live" : edgeProven ? "good" : "muted"}`;
 }
 
+function renderStrategyV2(s) {
+  const v2 = s.strategyV2 || {};
+  const p = v2.performance || {};
+  const account = v2.account || {};
+  const gate = v2.evidenceGate || {};
+  const decision = v2.lastDecision || {};
+  const position = v2.position || null;
+
+  $("v2Evidence").textContent = `${Number(p.evidenceClosedTrades || 0)} / ${Number(gate.verdict || p.evidenceTargetClosedTrades || 100)}`;
+  $("v2Closed").textContent = Number(p.closedTrades || 0);
+  $("v2WinRate").textContent = p.closedTrades ? `${Number(p.winRatePct || 0).toFixed(1)}%` : "—";
+  $("v2Factor").textContent = p.profitFactor == null ? (p.closedTrades ? "∞" : "—") : Number(p.profitFactor).toFixed(2);
+  setSigned($("v2Expectancy"), p.expectancyUsd || 0, p.closedTrades ? money(p.expectancyUsd || 0) : "—");
+  setSigned($("v2Equity"), Number(account.equity || account.startingBalance || 0) - Number(account.startingBalance || 0), money(account.equity || account.startingBalance || 0));
+  $("v2Position").textContent = position ? `${position.symbol} @ ${priceFmt(position.entryPrice)}` : "FLAT";
+  $("v2LastDecision").textContent = decision.reason ? `${humanReason(decision.reason)} • ${decision.symbol || "—"} • ${timeWita(decision.at)}` : "Menunggu cycle V2 pertama.";
+
+  const statusKey = String(p.sampleStatus || "V2_COLLECTING_DATA");
+  $("v2Status").textContent = statusKey === "V2_EDGE_PROVEN"
+    ? "V2 EDGE PROVEN"
+    : statusKey === "V2_EDGE_NOT_PROVEN"
+      ? "V2 EDGE NOT PROVEN"
+      : "V2 COLLECTING";
+  $("v2Status").className = `badge ${statusKey === "V2_EDGE_PROVEN" ? "good" : statusKey === "V2_EDGE_NOT_PROVEN" ? "live" : "paper"}`;
+}
+
 function renderBroker(s) {
   const b = s.broker || {};
   const check = b.lastCheck || {};
@@ -413,6 +453,7 @@ function render(s) {
   renderDecisions(s.decisionLog || []);
   renderFinance(s);
   renderPerformance(s);
+  renderStrategyV2(s);
   renderSafety(s);
   renderBroker(s);
   fillSettings(s);
