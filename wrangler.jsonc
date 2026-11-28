@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "kai-trad-pwa",
-  "main": "./worker-v1121.js",
+  "main": "./worker-v1122.js",
   "compatibility_date": "2026-08-10",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -69,6 +69,18 @@
     "MARKET_DATA_BASE_URL": "https://kai-trad-indodax-bridge.ardarawk.workers.dev",
     "INDODAX_BRIDGE_URL": "https://kai-trad-indodax-bridge.ardarawk.workers.dev",
     "TRADE_BASE_URL": "https://api.binance.com",
+    "V2_STARTING_BALANCE": "10000",
+    "V2_MIN_BUY_CONFIDENCE": "80",
+    "V2_MIN_TRADE_QUALITY": "80",
+    "V2_RISK_PER_TRADE": "0.005",
+    "V2_MAX_POSITION_PCT": "0.10",
+    "V2_MIN_STOP_PCT": "0.015",
+    "V2_MAX_STOP_PCT": "0.04",
+    "V2_ATR_STOP_MULTIPLE": "2.0",
+    "V2_REWARD_RISK": "2.5",
+    "V2_TRAILING_ACTIVATION_R": "1.25",
+    "V2_MIN_EXIT_CONFIDENCE": "80",
+    "V2_EVIDENCE_TARGET": "100",
     "ENABLE_LIVE_EXECUTION": "NO"
   }
 }
